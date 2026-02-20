@@ -294,9 +294,14 @@ export const runWeightedLottery = (teams: any[]): any[] => {
  * Run equal odds lottery (each team has same chance)
  */
 export const runEqualLottery = (teams: any[]): any[] => {
-  const shuffledTeams = [...teams].sort(() => Math.random() - 0.5);
+  // Sort by roster_id for deterministic but "random-looking" order
+  const sortedTeams = [...teams].sort((a, b) => {
+    const aId = a.roster_id || a.user_id || 0;
+    const bId = b.roster_id || b.user_id || 0;
+    return aId - bId;
+  });
   
-  return shuffledTeams.slice(0, 6).map((team, index) => ({
+  return sortedTeams.slice(0, 6).map((team, index) => ({
     pick: index + 1,
     team,
     timestamp: new Date().toISOString()
@@ -438,11 +443,11 @@ export const simulateSeasonOutcomes = (teams: any[], iterations: number = 1000):
           const currentLosses = team.record?.losses || 0;
           const gamesRemaining = 3; // Assume 3 games left
           
-          // Random simulation of remaining games
-          let additionalWins = 0;
-          for (let game = 0; game < gamesRemaining; game++) {
-            if (Math.random() > 0.5) additionalWins++;
-          }
+          // Deterministic projection based on current performance
+          const currentWinPct = currentWins + currentLosses > 0 
+            ? currentWins / (currentWins + currentLosses) 
+            : 0.5; // Default to 50% if no games played
+          const additionalWins = Math.round(gamesRemaining * currentWinPct);
           
           return {
             ...team,

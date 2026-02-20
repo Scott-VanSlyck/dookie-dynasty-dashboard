@@ -139,7 +139,7 @@ class AdvancedAnalyticsService {
       const game_records: GameRecord[] = [
         {
           type: 'highest_single',
-          value: (highestScoringTeam?.points_for || 150) * 1.2, // Estimate peak game
+          value: (highestScoringTeam?.points_for || 0) > 0 ? ((highestScoringTeam?.points_for || 0) * 1.2) : 0, // Use real data only
           team: highestScoringTeam,
           week: 1,
           season: '2026',
@@ -153,23 +153,7 @@ class AdvancedAnalyticsService {
           season: '2026',
           details: `Estimated lowest scoring game (pre-season projection)`
         },
-        {
-          type: 'biggest_blowout',
-          value: 89.7,
-          team: teams[0],
-          opponent: teams[5],
-          week: 3,
-          season: '2024',
-          details: 'Largest margin of victory: 89.7 points'
-        },
-        {
-          type: 'lowest_single',
-          value: 42.3,
-          team: teams[7],
-          week: 14,
-          season: '2022',
-          details: 'Lowest scoring game on record'
-        }
+        // Note: Hardcoded historical records removed - would be calculated from real matchup history
       ];
 
       // Generate season records based on current team standings
@@ -227,26 +211,44 @@ class AdvancedAnalyticsService {
       // Calculate real impactful performances from available data
       const performances: ImpactfulPerformance[] = [];
       
-      // Since we don't have individual player game logs, estimate based on team performance
-      teams.forEach((team, teamIndex) => {
-        if (team.points_for && team.points_for > 0) {
-          const estimatedBestGame = team.points_for * 1.3; // Estimate peak performance
-          
-          if (estimatedBestGame > 120) { // Significant performance threshold
+      // Get real impactful performances from current week matchup data
+      try {
+        const currentWeek = await sleeperAPI.getCurrentWeek();
+        const matchups = await sleeperAPI.getMatchups(currentWeek);
+        
+        // Process actual matchup data to find real impactful performances
+        for (const matchup of matchups) {
+          const team = teams.find(t => t.roster_id === matchup.roster_id);
+          if (team && matchup.points > 120) { // Only significant performances
+            const opponent = teams.find(t => 
+              matchups.find(m => m.matchup_id === matchup.matchup_id && m.roster_id !== matchup.roster_id)?.roster_id === t.roster_id
+            );
+            
+            // Calculate real margin of victory
+            const opponentMatchup = matchups.find(m => m.matchup_id === matchup.matchup_id && m.roster_id !== matchup.roster_id);
+            const realMargin = opponentMatchup ? Math.abs(matchup.points - opponentMatchup.points) : 0;
+            
             performances.push({
-              player_id: `star_${team.roster_id}`,
-              player_name: `${team.team_name} Star Player`,
+              player_id: `week${currentWeek}_${team.roster_id}`,
+              player_name: `${team.team_name} Performance`,
               team,
-              opponent: teams[(teamIndex + 1) % teams.length], // Rotate opponents
-              week: Math.floor(Math.random() * 14) + 1,
-              points: Math.round(estimatedBestGame * 100) / 100,
-              impact_type: 'game_winning',
-              margin_of_victory: Math.random() * 20 + 5,
-              context: `Estimated peak performance based on ${team.team_name}'s season average`
+              opponent: opponent,
+              week: currentWeek,
+              points: Math.round(matchup.points * 100) / 100,
+              impact_type: realMargin > 30 ? 'season_defining' : 'clutch_performance',
+              margin_of_victory: Math.round(realMargin * 100) / 100,
+              context: `Week ${currentWeek} actual performance vs ${opponent?.team_name || 'opponent'}`
             });
           }
         }
-      });
+        
+        // If no current week data available, show no data instead of fake data
+        if (performances.length === 0) {
+          console.log('No impactful performances data available from current matchups');
+        }
+      } catch (error) {
+        console.error('Error fetching real matchup data for impactful performances:', error);
+      }
 
       return performances;
     } catch (error) {
@@ -290,12 +292,12 @@ class AdvancedAnalyticsService {
               all_time_record: { team1_wins: team1Wins, team2_wins: team2Wins },
               average_score_diff: Math.round(avgScoreDiff * 100) / 100,
               closest_game: { 
-                week: Math.floor(Math.random() * 14) + 1, 
+                week: 1, 
                 season: new Date().getFullYear().toString(), 
                 score_diff: Math.round(Math.min(avgScoreDiff, 5) * 100) / 100
               },
               biggest_blowout: { 
-                week: Math.floor(Math.random() * 14) + 1, 
+                week: 1, 
                 season: new Date().getFullYear().toString(), 
                 score_diff: Math.round(Math.max(avgScoreDiff * 2, 20) * 100) / 100
               },
@@ -391,9 +393,8 @@ class AdvancedAnalyticsService {
       .sort((a, b) => (b.points_for || 0) - (a.points_for || 0))
       .findIndex(t => t.roster_id === team.roster_id) + 1;
     
-    // Return consistent ranking based on season performance (with some variation)
-    return Array(14).fill(0).map(() => Math.max(1, Math.min(allTeams.length, 
-      teamRank + Math.floor(Math.random() * 4) - 2))); // ±2 rank variation
+    // Return consistent ranking based on season performance
+    return Array(14).fill(teamRank);
   }
 
   /**
@@ -476,7 +477,7 @@ class AdvancedAnalyticsService {
         const weeks = 1; // Pre-draft likely means only 1 game played or projected
         
         for (let i = 0; i < weeks; i++) {
-          scores.push(avgScore + (Math.random() - 0.5) * 20); // Add some variance
+          scores.push(avgScore); // Use actual average score, no random variance
         }
       } else {
         // Pre-draft - no real scores yet, use roster-based projection
@@ -495,11 +496,13 @@ class AdvancedAnalyticsService {
    * Estimate team scoring based on roster quality (for pre-season)
    */
   private estimateTeamScoring(team: DookieTeam): number {
-    // Basic estimation - in real implementation this would analyze roster
-    const baseScore = 100; // Baseline fantasy score
-    const variance = 30; // Random variance for different teams
+    // Use current season points as basis for projection, or default baseline
+    if (team.points_for && team.points_for > 0) {
+      return team.points_for; // Use actual season performance
+    }
     
-    return baseScore + (Math.random() - 0.5) * variance;
+    // If no data available, use consistent baseline
+    return 100; // Baseline fantasy score - no random variance
   }
 }
 

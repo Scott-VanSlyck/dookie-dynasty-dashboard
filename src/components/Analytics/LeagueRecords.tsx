@@ -542,7 +542,7 @@ const LeagueRecords: React.FC<LeagueRecordsProps> = ({ teams, loading }) => {
                       <Pie
                         data={teams.slice(0, 6).map((team, index) => ({
                           name: team.team_name,
-                          value: Math.floor(Math.random() * 5) + 1,
+                          value: Math.max(1, team.record?.wins || 0),
                           fill: COLORS[index]
                         }))}
                         cx="50%"
@@ -635,7 +635,7 @@ const LeagueRecords: React.FC<LeagueRecordsProps> = ({ teams, loading }) => {
                       </ListItemAvatar>
                       <ListItemText
                         primary={team.team_name}
-                        secondary={`${Math.floor(Math.random() * 8) + 1} milestones`}
+                        secondary={`${Math.max(1, (team.record?.wins || 0) + Math.floor((team.points_for || 0) / 500))} milestones`}
                       />
                     </ListItem>
                   ))}
@@ -722,7 +722,7 @@ const LeagueRecords: React.FC<LeagueRecordsProps> = ({ teams, loading }) => {
                           </TableCell>
                           <TableCell align="center">{record.season}</TableCell>
                           <TableCell align="center">
-                            {Math.floor(Math.random() * 3) + 1} years
+                            {Math.max(1, new Date().getFullYear() - parseInt(record.season) + 1)} years
                           </TableCell>
                         </TableRow>
                       ))}
