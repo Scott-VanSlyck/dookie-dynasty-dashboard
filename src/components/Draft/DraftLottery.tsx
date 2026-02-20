@@ -69,23 +69,14 @@ const DraftLottery: React.FC<DraftLotteryProps> = ({ teams }) => {
   const [resultsDialog, setResultsDialog] = useState(false);
 
   useEffect(() => {
-    // Get bottom 6 teams for lottery
+    // Get bottom 6 teams for lottery based on current waiver order
+    // Pre-draft: waiver_position represents draft order (inverse of last season standings)
     const sortedTeams = teams.slice().sort((a, b) => {
-      const aWins = a.record?.wins || 0;
-      const bWins = b.record?.wins || 0;
-      const aLosses = a.record?.losses || 0;
-      const bLosses = b.record?.losses || 0;
+      // Higher waiver position = worse previous season record = better lottery odds
+      const aPosition = a.waiver_position || 1;
+      const bPosition = b.waiver_position || 1;
       
-      // Sort by win percentage (worst first)
-      const aWinPct = aWins + aLosses === 0 ? 0 : aWins / (aWins + aLosses);
-      const bWinPct = bWins + bLosses === 0 ? 0 : bWins / (bWins + bLosses);
-      
-      if (aWinPct !== bWinPct) {
-        return aWinPct - bWinPct;
-      }
-      
-      // Tie-breaker: points against (higher = worse)
-      return (b.points_against || 0) - (a.points_against || 0);
+      return bPosition - aPosition; // Worst teams (highest waiver pos) first
     });
 
     setLotteryTeams(sortedTeams.slice(0, 6));
