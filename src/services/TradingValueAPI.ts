@@ -147,12 +147,13 @@ class TradingValueService {
     }
 
     // Use search_rank for more realistic values (lower rank = higher value)
-    if (player.search_rank && player.search_rank <= 300) {
-      if (player.search_rank <= 25) baseValue *= 1.8;        // Elite players
-      else if (player.search_rank <= 50) baseValue *= 1.5;   // High-end players  
-      else if (player.search_rank <= 100) baseValue *= 1.2;  // Good players
-      else if (player.search_rank <= 200) baseValue *= 1.1;  // Above average
-      else baseValue *= 0.9;                                 // Below average
+    const searchRank = (player as any).search_rank;
+    if (searchRank && searchRank <= 300) {
+      if (searchRank <= 25) baseValue *= 1.8;        // Elite players
+      else if (searchRank <= 50) baseValue *= 1.5;   // High-end players  
+      else if (searchRank <= 100) baseValue *= 1.2;  // Good players
+      else if (searchRank <= 200) baseValue *= 1.1;  // Above average
+      else baseValue *= 0.9;                         // Below average
     } else {
       baseValue *= 0.7; // Lower value for unranked/deep players
     }
