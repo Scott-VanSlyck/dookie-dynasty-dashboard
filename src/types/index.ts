@@ -112,7 +112,7 @@ export interface TankathonData {
 export interface DashboardStats {
   total_teams: number;
   current_week: number;
-  season_status: 'pre_season' | 'regular_season' | 'playoffs' | 'complete';
+  season_status: 'pre_draft' | 'drafting' | 'pre_season' | 'regular_season' | 'playoffs' | 'complete' | string;
   lottery_eligible_teams: number;
   total_trades: number;
   most_active_trader: DookieTeam;

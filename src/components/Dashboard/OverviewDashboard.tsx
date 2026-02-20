@@ -59,10 +59,15 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
     setRefreshing(false);
   };
 
-  // Sort teams by standings
+  // Sort teams by standings (or by roster_id if pre-draft)
   const standings = teams.slice().sort((a, b) => {
     const aWinPct = calculateWinPercentage(a.record?.wins || 0, a.record?.losses || 0);
     const bWinPct = calculateWinPercentage(b.record?.wins || 0, b.record?.losses || 0);
+    
+    // If it's pre-draft (no games played), sort by roster_id for consistency
+    if (aWinPct === 0 && bWinPct === 0 && (a.record?.wins || 0) === 0 && (b.record?.wins || 0) === 0) {
+      return a.roster_id - b.roster_id;
+    }
     
     if (aWinPct !== bWinPct) {
       return bWinPct - aWinPct; // Higher win % first
@@ -141,10 +146,10 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <Box>
                   <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                    {stats?.current_week || 15}
+                    {stats?.current_week === 0 ? 'Pre-Draft' : `Week ${stats?.current_week || 1}`}
                   </Typography>
                   <Typography variant="body2">
-                    Current Week
+                    {stats?.current_week === 0 ? 'Season Status' : 'Current Week'}
                   </Typography>
                 </Box>
                 <Assessment sx={{ fontSize: 40, opacity: 0.7 }} />

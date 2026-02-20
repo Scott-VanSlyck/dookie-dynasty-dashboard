@@ -228,20 +228,23 @@ const MainDashboard: React.FC<MainDashboardProps> = () => {
       const teamsData = await sleeperAPI.getTeams();
       setTeams(teamsData);
 
-      // Generate dashboard stats
+      // Get league information for accurate season/week data
+      const leagueInfo = await sleeperAPI.getLeague();
+      
+      // Generate dashboard stats with real data
       const stats: DashboardStats = {
         total_teams: teamsData.length,
-        current_week: 15, // This would come from league data
-        season_status: 'regular_season',
+        current_week: leagueInfo.status === 'pre_draft' ? 0 : 1, // Pre-draft = week 0
+        season_status: (leagueInfo.status || 'pre_draft') as any,
         lottery_eligible_teams: 6,
-        total_trades: 0, // Would be calculated from trade data
-        most_active_trader: teamsData[0], // Placeholder
+        total_trades: 0, // Would be calculated from trade data when season starts
+        most_active_trader: teamsData[0], // Will be calculated when season starts
         highest_scoring_team: teamsData.reduce((highest, team) => 
           (team.points_for || 0) > (highest.points_for || 0) ? team : highest
         ),
         longest_win_streak: {
           team: teamsData[0],
-          streak: 3 // Placeholder
+          streak: 0 // No streaks in pre-draft
         }
       };
 
@@ -284,7 +287,7 @@ const MainDashboard: React.FC<MainDashboardProps> = () => {
               Dookie Dynasty
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              2025 Season
+              2026 Season
             </Typography>
           </Box>
         </Box>
