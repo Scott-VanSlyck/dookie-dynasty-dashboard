@@ -239,7 +239,8 @@ export const getTeamColor = (teamName: string): string => {
 /**
  * Lottery odds for bottom 6 teams (NBA-style weighted system)
  */
-export const LOTTERY_ODDS = [25.0, 15.6, 15.6, 11.9, 10.4, 9.0];
+// Dookie Dynasty 1/2.5 drop system starting at 60%
+export const LOTTERY_ODDS = [60.0, 24.0, 9.6, 3.84, 1.54, 0.62];
 
 /**
  * Run weighted lottery based on team records

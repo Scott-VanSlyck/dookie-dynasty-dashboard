@@ -112,14 +112,20 @@ const DraftLottery: React.FC<DraftLotteryProps> = ({ teams }) => {
       return bPosition - aPosition; // Worst teams first
     });
 
-    const lotteryOdds = [
-      { first_pick: 25.0, top_3: 64.3, top_6: 100.0 },
-      { first_pick: 19.9, top_3: 55.8, top_6: 100.0 },
-      { first_pick: 15.6, top_3: 46.9, top_6: 100.0 },
-      { first_pick: 11.9, top_3: 37.2, top_6: 100.0 },
-      { first_pick: 8.8, top_3: 26.2, top_6: 100.0 },
-      { first_pick: 6.7, top_3: 18.8, top_6: 100.0 }
-    ];
+    // Dookie Dynasty 1/2.5 drop system starting at 60%
+    const baseOdds = 60.0;
+    const dropFactor = 2.5;
+    const lotteryOdds = [];
+    let currentOdds = baseOdds;
+    
+    for (let i = 0; i < 6; i++) {
+      lotteryOdds.push({
+        first_pick: parseFloat(currentOdds.toFixed(2)),
+        top_3: i < 3 ? 100.0 : 0.0,
+        top_6: 100.0
+      });
+      currentOdds = currentOdds / dropFactor;
+    }
 
     return sortedTeams.slice(0, 6).map((team, index) => ({
       team,
@@ -318,7 +324,7 @@ const DraftLottery: React.FC<DraftLotteryProps> = ({ teams }) => {
           🎰 Draft Lottery System
         </Typography>
         <Typography variant="h6" color="text.secondary">
-          Weighted lottery system with 1/2.5 drop odds
+          1/2.5 drop system starting at 60% for worst team
         </Typography>
         <Typography variant="body2" color="text.secondary">
           Created by Grace 🐐 | Commissioner: CookieDonker
@@ -548,8 +554,8 @@ const DraftLottery: React.FC<DraftLotteryProps> = ({ teams }) => {
               </Typography>
               <Typography variant="body2" color="text.secondary" paragraph>
                 {historicalDataAvailable 
-                  ? "Lottery odds based on previous season final standings:"
-                  : "Estimated lottery odds (no historical data available):"
+                  ? "Lottery odds (1/2.5 drop system starting at 60%) based on previous season final standings:"
+                  : "Estimated lottery odds (1/2.5 drop system starting at 60%, no historical data available):"
                 }
               </Typography>
               {loading ? (

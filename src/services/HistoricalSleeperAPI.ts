@@ -401,15 +401,21 @@ class HistoricalSleeperService {
       .slice(-6) // Take last 6 (worst teams)
       .reverse(); // Flip so worst team is first
 
-    // NBA-style lottery odds (adjusted for fantasy)
-    const lotteryOdds = [
-      { first_pick: 25.0, top_3: 64.3, top_6: 100.0 }, // Worst team
-      { first_pick: 19.9, top_3: 55.8, top_6: 100.0 }, // 2nd worst
-      { first_pick: 15.6, top_3: 46.9, top_6: 100.0 }, // 3rd worst
-      { first_pick: 11.9, top_3: 37.2, top_6: 100.0 }, // 4th worst
-      { first_pick: 8.8, top_3: 26.2, top_6: 100.0 },  // 5th worst
-      { first_pick: 6.7, top_3: 18.8, top_6: 100.0 }   // 6th worst
-    ];
+    // Dookie Dynasty 1/2.5 drop system starting at 60%
+    const baseOdds = 60.0; // Worst team gets 60%
+    const dropFactor = 2.5; // Each team gets odds/2.5
+    
+    const lotteryOdds = [];
+    let currentOdds = baseOdds;
+    
+    for (let i = 0; i < 6; i++) {
+      lotteryOdds.push({
+        first_pick: parseFloat(currentOdds.toFixed(2)),
+        top_3: i < 3 ? 100.0 : 0.0, // Top 3 teams guaranteed to be in top 3
+        top_6: 100.0 // All 6 teams guaranteed to be in lottery
+      });
+      currentOdds = currentOdds / dropFactor;
+    }
 
     return lotteryEligible.map((record, index) => ({
       team: record.team,
