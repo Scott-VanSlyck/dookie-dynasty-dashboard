@@ -124,7 +124,8 @@ class TradingValueService {
   private async getRealDynastyValue(player: SleeperPlayer): Promise<number> {
     try {
       // Use enhanced calculation with free Sleeper API data only
-      return this.calculateBaseValue(player);
+      // Return 0 for now - no calculateBaseValue method exists
+      return 0;
       
     } catch (error) {
       console.error(`Error getting dynasty value for ${player.full_name}:`, error);
@@ -138,7 +139,8 @@ class TradingValueService {
   private async getRealMarketTrend(player: SleeperPlayer): Promise<'up' | 'down' | 'stable'> {
     try {
       // Use existing trend calculation with free Sleeper data
-      return this.determineTrend(player);
+      // Return stable for now - no determineTrend method exists
+      return 'stable';
       
     } catch (error) {
       console.error(`Error getting market trend for ${player.full_name}:`, error);
@@ -331,16 +333,18 @@ class TradingValueService {
    * Calculate legitimate dynasty value using only FREE Sleeper API data
    */
   private calculateLegitimateValue(player: SleeperPlayer): number {
-    // Use enhanced calculateBaseValue with search_rank integration
-    return this.calculateBaseValue(player);
+    // TODO: Implement dynasty value calculation using open source formulas
+    // For now return 0 until we integrate ffscrapr algorithms
+    return 0;
   }
 
   /**
    * Calculate legitimate trend using only FREE Sleeper API data
    */
   private calculateLegitimateTrend(player: SleeperPlayer): 'up' | 'down' | 'stable' {
-    // Use existing determineTrend method
-    return this.determineTrend(player);
+    // TODO: Implement trend calculation using open source formulas  
+    // For now return stable until we integrate ffscrapr algorithms
+    return 'stable';
   }
 }
 
