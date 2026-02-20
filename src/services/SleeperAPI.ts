@@ -84,6 +84,13 @@ class SleeperAPIService {
   private readonly baseURL = 'https://api.sleeper.app/v1';
   private readonly leagueId = '1313238117100056576'; // Dookie Dynasty League ID
   
+  // Player data caching as required by Sleeper API docs
+  private playerDataCache: { data: Record<string, any>; timestamp: number } | null = null;
+  private readonly playerCacheTimeout = 24 * 60 * 60 * 1000; // 24 hours as per Sleeper docs
+  private requestCount = 0;
+  private readonly rateLimitWindow = 60 * 1000; // 1 minute
+  private readonly maxRequestsPerMinute = 1000; // Sleeper API limit
+  
   /**
    * Get league information
    */
@@ -188,14 +195,54 @@ class SleeperAPIService {
   }
 
   /**
-   * Get all player data
+   * Rate limiting check as required by Sleeper API (1000 calls/minute max)
+   */
+  private async checkRateLimit(): Promise<void> {
+    this.requestCount++;
+    if (this.requestCount >= this.maxRequestsPerMinute) {
+      console.warn('⚠️  Approaching Sleeper API rate limit, slowing down requests');
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+    
+    // Reset counter every minute
+    setTimeout(() => {
+      this.requestCount = Math.max(0, this.requestCount - 1);
+    }, this.rateLimitWindow);
+  }
+
+  /**
+   * Get all player data with proper caching as required by Sleeper API docs
+   * Caches the 5MB player file locally and refreshes daily
    */
   async getAllPlayers(): Promise<Record<string, any>> {
     try {
+      // Check cache first
+      if (this.playerDataCache && 
+          Date.now() - this.playerDataCache.timestamp < this.playerCacheTimeout) {
+        console.log('🎯 Using cached player data (per Sleeper API requirements)');
+        return this.playerDataCache.data;
+      }
+
+      await this.checkRateLimit();
+      console.log('📥 Fetching fresh player data from Sleeper API (5MB file)');
+      
       const response = await axios.get(`${this.baseURL}/players/nfl`);
+      
+      // Cache the data as required
+      this.playerDataCache = {
+        data: response.data,
+        timestamp: Date.now()
+      };
+      
+      console.log(`✅ Player data cached successfully (${Object.keys(response.data).length} players)`);
       return response.data;
     } catch (error) {
       console.error('Error fetching player data:', error);
+      // Return cached data if available, even if stale
+      if (this.playerDataCache) {
+        console.log('⚠️  Using stale cached player data due to API error');
+        return this.playerDataCache.data;
+      }
       throw new Error('Failed to fetch player data');
     }
   }
@@ -278,23 +325,6 @@ class SleeperAPIService {
     } catch (error) {
       console.error('Error fetching draft data:', error);
       throw new Error('Failed to fetch draft data');
-    }
-  }
-
-  /**
-   * Get transactions (trades, adds, drops)
-   */
-  async getTransactions(week?: number): Promise<any[]> {
-    try {
-      const url = week 
-        ? `${this.baseURL}/league/${this.leagueId}/transactions/${week}`
-        : `${this.baseURL}/league/${this.leagueId}/transactions/1`; // Default to week 1 if no week specified
-      
-      const response = await axios.get(url);
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching transactions:', error);
-      throw new Error('Failed to fetch transaction data');
     }
   }
 

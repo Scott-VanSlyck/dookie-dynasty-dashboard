@@ -12,10 +12,10 @@ export interface HistoricalSeason {
   league_id: string;
   teams: DookieTeam[];
   final_standings: TeamRecord[];
-  champion: DookieTeam;
-  runner_up: DookieTeam;
+  champion?: DookieTeam;
+  runner_up?: DookieTeam;
   playoff_bracket?: any[];
-  regular_season_winner: DookieTeam;
+  regular_season_winner?: DookieTeam;
   trades: any[];
   draft_results?: any[];
 }
@@ -66,7 +66,7 @@ class HistoricalSleeperService {
     
     if (this.cache.has(cacheKey)) {
       const cached = this.cache.get(cacheKey);
-      if (Date.now() - cached.timestamp < this.cacheTimeout) {
+      if (cached && Date.now() - cached.timestamp < this.cacheTimeout) {
         return cached.data;
       }
     }
@@ -88,7 +88,7 @@ class HistoricalSleeperService {
             console.log(`✅ Found ${year} season: ${seasonData.teams.length} teams`);
           }
         } catch (error) {
-          console.log(`❌ No data for ${year} season:`, error.message);
+          console.log(`❌ No data for ${year} season:`, error instanceof Error ? error.message : error);
           continue;
         }
       }
@@ -162,8 +162,8 @@ class HistoricalSleeperService {
         league_id: leagueId,
         teams,
         final_standings: standings,
-        champion: standings[0]?.team,
-        runner_up: standings[1]?.team,
+        champion: standings[0]?.team || null,
+        runner_up: standings[1]?.team || null,
         regular_season_winner: this.findRegularSeasonWinner(standings),
         trades,
       };
@@ -324,10 +324,10 @@ class HistoricalSleeperService {
    * Calculate all-time records across seasons
    */
   private calculateAllTimeRecords(seasons: HistoricalSeason[]): any {
-    let mostChampionships = { team: null, count: 0, years: [] };
-    let highestSingleGame = { team: null, points: 0, week: 1, year: '' };
-    let bestSeasonRecord = { team: null, wins: 0, losses: 0, year: '' };
-    let highestSeasonPoints = { team: null, points: 0, year: '' };
+    let mostChampionships: { team: DookieTeam | null; count: number; years: string[] } = { team: null, count: 0, years: [] };
+    let highestSingleGame: { team: DookieTeam | null; points: number; week: number; year: string } = { team: null, points: 0, week: 1, year: '' };
+    let bestSeasonRecord: { team: DookieTeam | null; wins: number; losses: number; year: string } = { team: null, wins: 0, losses: 0, year: '' };
+    let highestSeasonPoints: { team: DookieTeam | null; points: number; year: string } = { team: null, points: 0, year: '' };
 
     seasons.forEach(season => {
       season.final_standings.forEach(record => {
@@ -405,7 +405,7 @@ class HistoricalSleeperService {
     const baseOdds = 60.0; // Worst team gets 60%
     const dropFactor = 2.5; // Each team gets odds/2.5
     
-    const lotteryOdds = [];
+    const lotteryOdds: Array<{ first_pick: number; top_3: number; top_6: number }> = [];
     let currentOdds = baseOdds;
     
     for (let i = 0; i < 6; i++) {
@@ -433,9 +433,6 @@ class HistoricalSleeperService {
       league_id: this.leagueId,
       teams: [], // Would be filled by current season API
       final_standings: [],
-      champion: null,
-      runner_up: null,
-      regular_season_winner: null,
       trades: []
     };
   }

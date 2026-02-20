@@ -115,7 +115,7 @@ const DraftLottery: React.FC<DraftLotteryProps> = ({ teams }) => {
     // Dookie Dynasty 1/2.5 drop system starting at 60%
     const baseOdds = 60.0;
     const dropFactor = 2.5;
-    const lotteryOdds = [];
+    const lotteryOdds: Array<{ first_pick: number; top_3: number; top_6: number }> = [];
     let currentOdds = baseOdds;
     
     for (let i = 0; i < 6; i++) {
@@ -277,11 +277,11 @@ const DraftLottery: React.FC<DraftLotteryProps> = ({ teams }) => {
     if (!isRunning || currentPick === 0) return [];
     
     const remainingTeams = lotteryTeams.filter(team => 
-      !lotteryResults.some(result => result.team.roster_id === team.roster_id)
+      !lotteryResults.some(result => result.team.roster_id === team.team.roster_id)
     );
     
-    return remainingTeams.map((team, index) => ({
-      team,
+    return remainingTeams.map((lotteryTeam, index) => ({
+      team: lotteryTeam.team, // Extract DookieTeam from DraftLotteryTeam
       odds: LOTTERY_ODDS[index] || 0
     }));
   };
@@ -393,12 +393,12 @@ const DraftLottery: React.FC<DraftLotteryProps> = ({ teams }) => {
                 Lottery Eligible Teams ({lotteryTeams.length})
               </Typography>
               <Grid container spacing={2}>
-                {lotteryTeams.map((team, index) => {
-                  const result = lotteryResults.find(r => r.team.roster_id === team.roster_id);
+                {lotteryTeams.map((lotteryTeam, index) => {
+                  const result = lotteryResults.find(r => r.team.roster_id === lotteryTeam.team.roster_id);
                   const isWinner = !!result;
                   
                   return (
-                    <Grid size={{ xs: 12, sm: 6, md: 4 }} key={team.roster_id}>
+                    <Grid size={{ xs: 12, sm: 6, md: 4 }} key={lotteryTeam.team.roster_id}>
                       <Grow in={true} timeout={300 + index * 100}>
                         <Card
                           sx={{
@@ -443,21 +443,21 @@ const DraftLottery: React.FC<DraftLotteryProps> = ({ teams }) => {
                                   height: 40
                                 }}
                               >
-                                {team.owner_name.charAt(0).toUpperCase()}
+                                {lotteryTeam.team.owner_name.charAt(0).toUpperCase()}
                               </Avatar>
                               <Box sx={{ flexGrow: 1, minWidth: 0 }}>
                                 <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }} noWrap>
-                                  {team.team_name}
+                                  {lotteryTeam.team.team_name}
                                 </Typography>
                                 <Typography variant="body2" sx={{ opacity: 0.8 }} noWrap>
-                                  {team.owner_name}
+                                  {lotteryTeam.team.owner_name}
                                 </Typography>
                               </Box>
                             </Box>
                             
                             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                               <Chip
-                                label={`${team.record?.wins || 0}-${team.record?.losses || 0}`}
+                                label={`${lotteryTeam.team.record?.wins || 0}-${lotteryTeam.team.record?.losses || 0}`}
                                 size="small"
                                 sx={{
                                   bgcolor: isWinner ? 'rgba(255,255,255,0.2)' : 'default',

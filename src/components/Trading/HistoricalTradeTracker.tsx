@@ -146,18 +146,18 @@ const HistoricalTradeTracker: React.FC<HistoricalTradeTrackerProps> = ({ teams, 
 
       // Load manager metrics for each team
       const metrics = await Promise.all(
-        teams.map(team => 
+        teams.map((team: any) => 
           historicalTradeAPI.getManagerTradePerformance(team.roster_id.toString(), teams)
         )
       );
-      setManagerMetrics(metrics);
+      setManagerMetrics(metrics.filter(m => m !== null) as TradePerformanceMetrics[]);
 
       // Load position analysis for major positions
       const positions = ['QB', 'RB', 'WR', 'TE'];
       const posAnalysis = await Promise.all(
-        positions.map(pos => historicalTradeAPI.getPositionTradingAnalysis(pos))
+        positions.map((pos: string) => historicalTradeAPI.getPositionTradingAnalysis(pos))
       );
-      setPositionAnalysis(posAnalysis);
+      setPositionAnalysis(posAnalysis.filter(p => p !== null) as PositionTradingAnalysis[]);
 
     } catch (error) {
       console.error('Error loading historical trade data:', error);
@@ -227,7 +227,7 @@ const HistoricalTradeTracker: React.FC<HistoricalTradeTrackerProps> = ({ teams, 
             </Typography>
             
             <Box sx={{ mb: 3 }}>
-              {historicalTrades.map((trade) => (
+              {historicalTrades.map((trade: any) => (
                 <Card key={trade.id} sx={{ mb: 2, cursor: 'pointer' }} onClick={() => handleTradeSelect(trade)}>
                   <CardContent>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
@@ -243,7 +243,7 @@ const HistoricalTradeTracker: React.FC<HistoricalTradeTrackerProps> = ({ teams, 
 
                     {/* Trade Evolution Timeline */}
                     <Grid container spacing={2}>
-                      {trade.analysis.evolution.map((point, index) => (
+                      {trade.analysis.evolution.map((point: any, index: number) => (
                         <Grid size={{ xs: 12, md: 4 }} key={point.period}>
                           <Paper sx={{ p: 2, textAlign: 'center', bgcolor: index === 0 ? 'action.hover' : 'background.paper' }}>
                             <Typography variant="subtitle2" color="text.secondary">
@@ -320,7 +320,7 @@ const HistoricalTradeTracker: React.FC<HistoricalTradeTrackerProps> = ({ teams, 
                       {selectedTrade.participants.team_a.team_name} sent:
                     </Typography>
                     <List dense>
-                      {selectedTrade.participants.team_a.players_sent.map(playerId => (
+                      {selectedTrade.participants.team_a.players_sent.map((playerId: string) => (
                         <ListItem key={playerId}>
                           <ListItemText primary="Player Name" secondary={`ID: ${playerId}`} />
                         </ListItem>
@@ -333,7 +333,7 @@ const HistoricalTradeTracker: React.FC<HistoricalTradeTrackerProps> = ({ teams, 
                       {selectedTrade.participants.team_b.team_name} sent:
                     </Typography>
                     <List dense>
-                      {selectedTrade.participants.team_b.players_sent.map(playerId => (
+                      {selectedTrade.participants.team_b.players_sent.map((playerId: string) => (
                         <ListItem key={playerId}>
                           <ListItemText primary="Player Name" secondary={`ID: ${playerId}`} />
                         </ListItem>
@@ -347,7 +347,7 @@ const HistoricalTradeTracker: React.FC<HistoricalTradeTrackerProps> = ({ teams, 
                     💡 Lessons Learned:
                   </Typography>
                   <List dense>
-                    {selectedTrade.analysis.final_grade.lessons_learned.map((lesson, index) => (
+                    {selectedTrade.analysis.final_grade.lessons_learned.map((lesson: any, index: number) => (
                       <ListItem key={index}>
                         <ListItemText 
                           primary={lesson}
@@ -371,7 +371,7 @@ const HistoricalTradeTracker: React.FC<HistoricalTradeTrackerProps> = ({ teams, 
         </Typography>
 
         <Grid container spacing={3}>
-          {managerMetrics.map((metrics) => (
+          {managerMetrics.map((metrics: any) => (
             <Grid size={{ xs: 12, md: 6, lg: 4 }} key={metrics.manager_id}>
               <Card>
                 <CardContent>
@@ -465,7 +465,7 @@ const HistoricalTradeTracker: React.FC<HistoricalTradeTrackerProps> = ({ teams, 
         </Typography>
 
         <Grid container spacing={3}>
-          {positionAnalysis.map((analysis) => (
+          {positionAnalysis.map((analysis: any) => (
             <Grid size={{ xs: 12, md: 6 }} key={analysis.position}>
               <Card>
                 <CardContent>
@@ -538,7 +538,7 @@ const HistoricalTradeTracker: React.FC<HistoricalTradeTrackerProps> = ({ teams, 
         </Typography>
 
         <Grid container spacing={3}>
-          {dynastyLearnings.map((learning) => (
+          {dynastyLearnings.map((learning: any) => (
             <Grid size={{ xs: 12 }} key={learning.id}>
               <Card>
                 <CardContent>
@@ -674,7 +674,7 @@ const HistoricalTradeTracker: React.FC<HistoricalTradeTrackerProps> = ({ teams, 
               </TableRow>
             </TableHead>
             <TableBody>
-              {historicalTrades.map((trade) => (
+              {historicalTrades.map((trade: any) => (
                 <TableRow key={trade.id} hover>
                   <TableCell>{new Date(trade.date).toLocaleDateString()}</TableCell>
                   <TableCell>

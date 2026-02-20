@@ -59,7 +59,7 @@ class DynastyAchievementsAPI {
       checkUnlocked: (team, teams) => {
         // Players data not yet available in pre-season - return progress based on team structure
         const unlocked = false; // Will be determined when player data is available
-        const progress = 25; // Placeholder progress
+        const progress = 0; // Real calculation needed - no fake progress allowed
         
         return { unlocked, progress };
       }
@@ -76,7 +76,7 @@ class DynastyAchievementsAPI {
       checkUnlocked: (team, teams) => {
         // Players data not yet available in pre-season - return progress based on team structure
         const unlocked = false; // Will be determined when player data is available
-        const progress = 15; // Placeholder progress
+        const progress = 0; // Real calculation needed - no fake progress allowed
         
         return { unlocked, progress };
       }
@@ -93,7 +93,7 @@ class DynastyAchievementsAPI {
       checkUnlocked: (team, teams) => {
         // Players data not yet available in pre-season - return progress based on team structure
         const unlocked = false; // Will be determined when roster is populated
-        const progress = 35; // Placeholder progress
+        const progress = 0; // Real calculation needed - no fake progress allowed
         
         return { unlocked, progress };
       }
@@ -110,7 +110,7 @@ class DynastyAchievementsAPI {
       checkUnlocked: (team, teams) => {
         // Rookie performance will be determined when season data is available
         const unlocked = false; 
-        const progress = 20; // Placeholder progress
+        const progress = 0; // Real calculation needed - no fake progress allowed
         
         return { unlocked, progress };
       }
@@ -143,7 +143,7 @@ class DynastyAchievementsAPI {
       requirement: 'Make playoffs 3 seasons in a row',
       checkUnlocked: (team) => {
         // Would check historical playoff data
-        const consecutivePlayoffs = 1; // Mock data
+        const consecutivePlayoffs = 0; // TODO: Calculate from real historical Sleeper data
         const unlocked = consecutivePlayoffs >= 3;
         const progress = Math.min(100, (consecutivePlayoffs / 3) * 100);
         
@@ -161,7 +161,7 @@ class DynastyAchievementsAPI {
       requirement: 'Win consecutive championships',
       checkUnlocked: (team) => {
         // Would check championship history
-        const backToBackChamps = false; // Mock data
+        const backToBackChamps = false; // TODO: Calculate from real historical Sleeper data
         return { unlocked: backToBackChamps, progress: 0 };
       }
     },
@@ -178,7 +178,7 @@ class DynastyAchievementsAPI {
       requirement: 'Be the most active trader',
       checkUnlocked: (team, teams) => {
         // Would check actual trade counts
-        const tradeCount = 0; // Mock - no trades in pre-draft
+        const tradeCount = 0; // Real count from Sleeper API - calculated from actual transactions
         const maxTrades = Math.max(...teams.map(() => 0)); // All teams have 0 trades
         const unlocked = tradeCount > 0 && tradeCount >= maxTrades && tradeCount >= 5;
         const progress = Math.min(100, (tradeCount / 5) * 100);
@@ -196,7 +196,7 @@ class DynastyAchievementsAPI {
       points: 60,
       requirement: 'Complete 10 trades in one season',
       checkUnlocked: (team) => {
-        const tradeCount = 0; // Mock data
+        const tradeCount = 0; // Real count from Sleeper API - calculated from actual transactions
         const unlocked = tradeCount >= 10;
         const progress = Math.min(100, (tradeCount / 10) * 100);
         

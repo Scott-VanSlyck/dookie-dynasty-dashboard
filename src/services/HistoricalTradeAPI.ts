@@ -5,7 +5,6 @@
 
 import { 
   HistoricalTrade, 
-  TradeTimeline, 
   TradeAnalysisPoint,
   TradePerformanceMetrics,
   PositionTradingAnalysis,
@@ -19,480 +18,264 @@ import { sleeperAPI } from './SleeperAPI';
 
 class HistoricalTradeService {
   private trades: HistoricalTrade[] = [];
-  private playerValueHistory: { [player_id: string]: HistoricalPlayerValue[] } = {};
+  private leagueId = '1313238117100056576';
   
-  // Mock historical trade data for demonstration
-  private mockHistoricalTrades: HistoricalTrade[] = [
-    {
-      id: 'trade_001',
-      date: '2021-09-15',
-      status: 'completed',
-      teams: [],
-      participants: {
-        team_a: {
-          roster_id: 1,
-          team_name: 'Dynasty Dominators',
-          players_sent: ['4046'], // Josh Allen
-          players_received: ['6794'], // Ja'Marr Chase
-          picks_sent: [{ season: '2022', round: 2, current_owner: 2, original_owner: 1 }],
-          picks_received: []
-        },
-        team_b: {
-          roster_id: 2,
-          team_name: 'Championship Chasers',
-          players_sent: ['6794'], // Ja'Marr Chase
-          players_received: ['4046'], // Josh Allen
-          picks_sent: [],
-          picks_received: [{ season: '2022', round: 2, current_owner: 2, original_owner: 1 }]
-        }
-      },
-      analysis: {
-        timeline: {
-          execution: {
-            date: '2021-09-15',
-            values: {
-              '4046': 8200, // Josh Allen at trade
-              '6794': 9500  // Ja'Marr Chase at trade
-            }
-          },
-          one_year: {
-            date: '2022-09-15',
-            values: {
-              '4046': 8800, // Allen improved
-              '6794': 9200  // Chase slightly down
-            }
-          },
-          three_years: {
-            date: '2024-09-15',
-            values: {
-              '4046': 8500, // Allen still strong
-              '6794': 9800  // Chase reached peak
-            }
-          }
-        },
-        evolution: [
-          {
-            period: 'execution',
-            date: '2021-09-15',
-            team_a_value: 8200,
-            team_b_value: 9500,
-            winner: 'team_b',
-            value_difference: 1300,
-            percentage_difference: 14.6
-          },
-          {
-            period: 'one_year',
-            date: '2022-09-15',
-            team_a_value: 8800,
-            team_b_value: 9200,
-            winner: 'team_b',
-            value_difference: 400,
-            percentage_difference: 4.4
-          },
-          {
-            period: 'three_years',
-            date: '2024-09-15',
-            team_a_value: 8500,
-            team_b_value: 9800,
-            winner: 'team_b',
-            value_difference: 1300,
-            percentage_difference: 13.3
-          }
-        ],
-        final_grade: {
-          team_a_grade: 'B',
-          team_b_grade: 'A',
-          hindsight_winner: 'team_b',
-          lessons_learned: [
-            'Young elite WRs often outperform aging QBs in dynasty',
-            'Chase injury concerns were overblown',
-            'Allen peaked earlier than expected'
-          ]
-        }
-      }
-    },
-    {
-      id: 'trade_002',
-      date: '2022-03-20',
-      status: 'completed',
-      teams: [],
-      participants: {
-        team_a: {
-          roster_id: 3,
-          team_name: 'Tank Commanders',
-          players_sent: ['4988'], // Christian McCaffrey
-          players_received: ['8110', '9509'], // Bijan Robinson, Breece Hall
-          picks_sent: [],
-          picks_received: [{ season: '2023', round: 1, current_owner: 3, original_owner: 4 }]
-        },
-        team_b: {
-          roster_id: 4,
-          team_name: 'Win Now Mode',
-          players_sent: ['8110', '9509'], // Bijan Robinson, Breece Hall
-          players_received: ['4988'], // Christian McCaffrey
-          picks_sent: [{ season: '2023', round: 1, current_owner: 3, original_owner: 4 }],
-          picks_received: []
-        }
-      },
-      analysis: {
-        timeline: {
-          execution: {
-            date: '2022-03-20',
-            values: {
-              '4988': 8500, // CMC at trade
-              '8110': 6800, // Bijan (rookie)
-              '9509': 7200  // Breece (rookie)
-            }
-          },
-          one_year: {
-            date: '2023-03-20',
-            values: {
-              '4988': 6200, // CMC declined
-              '8110': 8900, // Bijan emerged
-              '9509': 8600  // Breece breakout
-            }
-          },
-          three_years: {
-            date: '2025-03-20',
-            values: {
-              '4988': 4500, // CMC aging
-              '8110': 8900, // Bijan prime
-              '9509': 8600  // Breece prime
-            }
-          }
-        },
-        evolution: [
-          {
-            period: 'execution',
-            date: '2022-03-20',
-            team_a_value: 14000, // Bijan + Breece
-            team_b_value: 8500,  // Just CMC
-            winner: 'team_a',
-            value_difference: 5500,
-            percentage_difference: 39.3
-          },
-          {
-            period: 'one_year',
-            date: '2023-03-20',
-            team_a_value: 17500,
-            team_b_value: 6200,
-            winner: 'team_a',
-            value_difference: 11300,
-            percentage_difference: 64.5
-          },
-          {
-            period: 'three_years',
-            date: '2025-03-20',
-            team_a_value: 17500,
-            team_b_value: 4500,
-            winner: 'team_a',
-            value_difference: 13000,
-            percentage_difference: 74.2
-          }
-        ],
-        final_grade: {
-          team_a_grade: 'A+',
-          team_b_grade: 'D',
-          hindsight_winner: 'team_a',
-          lessons_learned: [
-            'Trading aging RBs for young talent is usually correct',
-            'Multiple young assets > one aging star',
-            'RB shelf life is shorter than expected'
-          ]
-        }
-      }
-    }
-  ];
-
   constructor() {
-    this.loadHistoricalData();
+    console.log('HistoricalTradeService initialized for real Sleeper league:', this.leagueId);
   }
 
   /**
-   * Load historical trade data and player values
+   * Get all historical trades from Sleeper API
    */
-  private async loadHistoricalData() {
-    // In production, this would load from persistent storage
-    this.trades = [...this.mockHistoricalTrades];
-    await this.generatePlayerValueHistory();
-  }
-
-  /**
-   * Generate historical player value data
-   */
-  private async generatePlayerValueHistory() {
-    const players = ['4046', '6794', '4988', '8110', '9509'];
-    const startDate = new Date('2021-01-01');
-    const endDate = new Date();
-    
-    for (const playerId of players) {
-      this.playerValueHistory[playerId] = [];
-      
-      const currentValue = (await tradingValueAPI.getPlayerValue(playerId))?.value || 5000;
-      let currentDate = new Date(startDate);
-      
-      while (currentDate <= endDate) {
-        // Generate realistic value progression with some randomness
-        const daysFromStart = Math.floor((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-        const baseValue = currentValue * (0.8 + Math.random() * 0.4); // ±20% variation
-        const seasonalAdjustment = Math.sin((daysFromStart / 365) * 2 * Math.PI) * 500; // Seasonal variation
-        const trendAdjustment = (Math.random() - 0.5) * 1000; // Random trend
-        
-        this.playerValueHistory[playerId].push({
-          player_id: playerId,
-          date: currentDate.toISOString().split('T')[0],
-          value: Math.max(500, baseValue + seasonalAdjustment + trendAdjustment),
-          source: 'calculated'
-        });
-        
-        // Move to next month
-        currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
-      }
-    }
-  }
-
-  /**
-   * Get all historical trades
-   */
-  async getHistoricalTrades(): Promise<HistoricalTrade[]> {
+  async getHistoricalTrades(): Promise<any[]> {
     try {
-      // Get real trades from Sleeper API
-      const realTrades = await sleeperAPI.getTrades();
+      // Get current season transactions from real Sleeper API
+      const transactions = await sleeperAPI.getTransactions();
+      const teams = await sleeperAPI.getTeams();
       
-      if (realTrades.length > 0) {
-        console.log(`Found ${realTrades.length} real trades from Sleeper API`);
-        // For now, use mock data but indicate real trades are available
-        this.trades = this.mockHistoricalTrades;
-      } else {
-        // Since league is in pre-draft, no trades yet - use sample data
-        console.log('Pre-draft season - no trades yet. Using sample data for demonstration.');
-        this.trades = this.mockHistoricalTrades;
-      }
+      // Convert real Sleeper transactions to our format
+      const historicalTrades: HistoricalTrade[] = transactions
+        .filter(tx => tx.type === 'trade' && tx.status === 'complete')
+        .map(tx => this.convertSleeperTradeToHistoricalTrade(tx, teams));
+
+      this.trades = historicalTrades;
+      return historicalTrades;
       
-      return this.trades;
     } catch (error) {
-      console.error('Error fetching historical trades:', error);
-      // Fallback to mock data on error
-      return this.mockHistoricalTrades;
+      console.error('Error fetching real historical trades:', error);
+      return []; // REAL DATA ONLY - No mock data per user requirements
     }
   }
 
   /**
-   * Get a specific trade by ID
+   * Convert Sleeper transaction to HistoricalTrade format
    */
-  async getTradeById(tradeId: string): Promise<HistoricalTrade | null> {
-    return this.trades.find(trade => trade.id === tradeId) || null;
-  }
+  private convertSleeperTradeToHistoricalTrade(transaction: any, teams: DookieTeam[]): HistoricalTrade {
+    const rosterIds = transaction.roster_ids || [];
+    const tradeTeams = rosterIds.map((rosterId: number) => 
+      teams.find(team => team.roster_id === rosterId)
+    ).filter(Boolean);
 
-  /**
-   * Search trades by various criteria
-   */
-  async searchTrades(criteria: {
-    manager_id?: string;
-    position?: string;
-    date_from?: string;
-    date_to?: string;
-    min_value?: number;
-    winner_only?: 'team_a' | 'team_b';
-  }): Promise<HistoricalTrade[]> {
-    let results = [...this.trades];
-    
-    if (criteria.date_from) {
-      results = results.filter(trade => trade.date >= criteria.date_from!);
-    }
-    
-    if (criteria.date_to) {
-      results = results.filter(trade => trade.date <= criteria.date_to!);
-    }
-    
-    if (criteria.manager_id) {
-      results = results.filter(trade => 
-        trade.participants.team_a.roster_id.toString() === criteria.manager_id ||
-        trade.participants.team_b.roster_id.toString() === criteria.manager_id
-      );
-    }
-    
-    if (criteria.winner_only) {
-      results = results.filter(trade => 
-        trade.analysis.final_grade.hindsight_winner === criteria.winner_only
-      );
-    }
-    
-    return results;
-  }
-
-  /**
-   * Get trade performance metrics for a specific manager
-   */
-  async getManagerTradePerformance(managerId: string, teams: DookieTeam[]): Promise<TradePerformanceMetrics> {
-    const managerTrades = await this.searchTrades({ manager_id: managerId });
-    const team = teams.find(t => t.roster_id.toString() === managerId);
-    
-    const immediateWins = managerTrades.filter(trade => {
-      const isTeamA = trade.participants.team_a.roster_id.toString() === managerId;
-      const executionWinner = trade.analysis.evolution[0].winner;
-      return (isTeamA && executionWinner === 'team_a') || (!isTeamA && executionWinner === 'team_b');
-    }).length;
-    
-    const longTermWins = managerTrades.filter(trade => {
-      const isTeamA = trade.participants.team_a.roster_id.toString() === managerId;
-      const hindsightWinner = trade.analysis.final_grade.hindsight_winner;
-      return (isTeamA && hindsightWinner === 'team_a') || (!isTeamA && hindsightWinner === 'team_b');
-    }).length;
-    
     return {
-      manager_id: managerId,
-      manager_name: team?.team_name || 'Unknown',
-      total_trades: managerTrades.length,
-      immediate_wins: immediateWins,
-      long_term_wins: longTermWins,
-      trade_accuracy: managerTrades.length > 0 ? (immediateWins / managerTrades.length) * 100 : 0,
-      hindsight_score: managerTrades.length > 0 ? (longTermWins / managerTrades.length) * 100 : 0,
-      best_position_traded: 'WR', // This would be calculated from actual data
-      worst_position_traded: 'RB',
-      avg_trade_value: 7500,
-      biggest_win: managerTrades[0] || {} as HistoricalTrade,
-      biggest_loss: managerTrades[1] || {} as HistoricalTrade
-    };
-  }
-
-  /**
-   * Analyze position trading patterns
-   */
-  async getPositionTradingAnalysis(position: string): Promise<PositionTradingAnalysis> {
-    const positionTrades = this.trades.filter(trade => 
-      [...trade.participants.team_a.players_sent, ...trade.participants.team_a.players_received,
-       ...trade.participants.team_b.players_sent, ...trade.participants.team_b.players_received]
-      .some(async playerId => {
-        const player = await tradingValueAPI.getPlayerValue(playerId);
-        return player?.position === position;
-      })
-    );
-
-    // Mock analysis - in production this would be calculated from actual data
-    return {
-      position,
-      total_trades_involving: positionTrades.length,
-      avg_value_retention_1yr: position === 'RB' ? 65 : position === 'WR' ? 85 : 80,
-      avg_value_retention_3yr: position === 'RB' ? 40 : position === 'WR' ? 75 : 70,
-      best_age_to_trade: position === 'RB' ? 27 : position === 'WR' ? 29 : 30,
-      worst_age_to_trade: position === 'RB' ? 30 : position === 'WR' ? 32 : 35,
-      injury_impact_factor: position === 'RB' ? 0.85 : 0.92,
-      most_successful_trades: positionTrades.slice(0, 3),
-      biggest_busts: positionTrades.slice(-2)
-    };
-  }
-
-  /**
-   * Get dynasty learning insights
-   */
-  async getDynastyLearnings(): Promise<TradeLearning[]> {
-    return [
-      {
-        id: 'learning_001',
-        title: 'RB Shelf Life is Shorter Than Expected',
-        category: 'age_curve',
-        description: 'Running backs lose significant value after age 28, with most becoming replacement-level by 30. Trading aging RBs before age 28 for younger assets has a 78% success rate.',
-        supporting_trades: ['trade_002'],
-        confidence_level: 'high',
-        impact_score: 9.2
+      id: transaction.transaction_id,
+      date: new Date(transaction.created).toISOString().split('T')[0],
+      status: 'completed',
+      teams: tradeTeams,
+      consensus: {}, // Real consensus data to be populated
+      metadata: {
+        transaction_type: transaction.type,
+        created_timestamp: transaction.created,
+        league_id: this.leagueId
       },
-      {
-        id: 'learning_002',
-        title: 'Elite Young WRs Outperform Aging QBs',
-        category: 'position_value',
-        description: 'When trading between elite QBs over 27 and elite WRs under 24, the WR side wins 65% of the time in 3-year evaluations.',
-        supporting_trades: ['trade_001'],
-        confidence_level: 'medium',
-        impact_score: 7.8
+      participants: {
+        team_a: {
+          roster_id: rosterIds[0] || 0,
+          team_name: tradeTeams[0]?.team_name || 'Unknown Team A',
+          players_sent: this.getPlayersForRoster(transaction, rosterIds[0], 'sent'),
+          players_received: this.getPlayersForRoster(transaction, rosterIds[0], 'received'),
+          picks_sent: this.getPicksForRoster(transaction, rosterIds[0], 'sent'),
+          picks_received: this.getPicksForRoster(transaction, rosterIds[0], 'received')
+        },
+        team_b: {
+          roster_id: rosterIds[1] || 0,
+          team_name: tradeTeams[1]?.team_name || 'Unknown Team B',
+          players_sent: this.getPlayersForRoster(transaction, rosterIds[1], 'sent'),
+          players_received: this.getPlayersForRoster(transaction, rosterIds[1], 'received'),
+          picks_sent: this.getPicksForRoster(transaction, rosterIds[1], 'sent'),
+          picks_received: this.getPicksForRoster(transaction, rosterIds[1], 'received')
+        }
       },
-      {
-        id: 'learning_003',
-        title: 'Draft Capital Premiums Are Often Justified',
-        category: 'market_timing',
-        description: 'Early round draft picks in strong draft classes often outperform their initial valuations. Rookies selected in the top 6 of strong classes retain 95% of their value after 1 year.',
-        supporting_trades: ['trade_002'],
-        confidence_level: 'high',
-        impact_score: 8.5
-      },
-      {
-        id: 'learning_004',
-        title: 'Injury History Has Lasting Market Impact',
-        category: 'injury_risk',
-        description: 'Players with significant injury history are discounted by markets even after full recovery. This creates opportunities to buy low on fully healthy former injury-prone players.',
-        supporting_trades: [],
-        confidence_level: 'medium',
-        impact_score: 6.9
+      analysis: {
+        timeline: {
+          execution: {
+            date: new Date(transaction.created).toISOString().split('T')[0],
+            values: {} // Will be populated by real value tracking
+          },
+          one_year: null,
+          three_years: null
+        },
+        evolution: [],
+        final_grade: {
+          team_a_grade: 'C' as const, // Default until analysis complete
+          team_b_grade: 'C' as const,
+          hindsight_winner: 'even' as const,
+          lessons_learned: []
+        }
       }
-    ];
+    };
   }
 
   /**
-   * Get player value history for charting
+   * Get players involved in trade for specific roster
    */
-  async getPlayerValueHistory(playerId: string, startDate?: string, endDate?: string): Promise<HistoricalPlayerValue[]> {
-    const history = this.playerValueHistory[playerId] || [];
+  private getPlayersForRoster(transaction: any, rosterId: number, direction: 'sent' | 'received'): string[] {
+    const players: string[] = [];
     
-    let filtered = history;
-    if (startDate) {
-      filtered = filtered.filter(entry => entry.date >= startDate);
-    }
-    if (endDate) {
-      filtered = filtered.filter(entry => entry.date <= endDate);
-    }
-    
-    return filtered;
-  }
-
-  /**
-   * Simulate adding a new trade for tracking
-   */
-  async addTradeForTracking(trade: Trade): Promise<void> {
-    // In production, this would initiate tracking for a new trade
-    // Set up future value checkpoints at 1 year and 3 years
-    console.log('Trade added for historical tracking:', trade.id);
-  }
-
-  /**
-   * Get trade timeline visualization data
-   */
-  async getTradeTimelineData(tradeId: string): Promise<{
-    labels: string[];
-    team_a_data: number[];
-    team_b_data: number[];
-    winner_evolution: string[];
-  }> {
-    const trade = await this.getTradeById(tradeId);
-    if (!trade) {
-      return { labels: [], team_a_data: [], team_b_data: [], winner_evolution: [] };
+    if (transaction.adds) {
+      Object.entries(transaction.adds).forEach(([playerId, targetRosterId]) => {
+        if (direction === 'received' && targetRosterId === rosterId.toString()) {
+          players.push(playerId);
+        } else if (direction === 'sent' && targetRosterId !== rosterId.toString()) {
+          players.push(playerId);
+        }
+      });
     }
 
-    const labels = ['At Trade', '1 Year Later', '3 Years Later'];
-    const team_a_data = trade.analysis.evolution.map(point => point.team_a_value);
-    const team_b_data = trade.analysis.evolution.map(point => point.team_b_value);
-    const winner_evolution = trade.analysis.evolution.map(point => point.winner);
+    if (transaction.drops) {
+      Object.entries(transaction.drops).forEach(([playerId, sourceRosterId]) => {
+        if (direction === 'sent' && sourceRosterId === rosterId.toString()) {
+          players.push(playerId);
+        }
+      });
+    }
 
-    return { labels, team_a_data, team_b_data, winner_evolution };
+    return players;
   }
 
   /**
-   * Calculate trade report card grade
+   * Get draft picks involved in trade for specific roster
    */
-  private calculateGrade(winnerCount: number, totalCount: number): 'A+' | 'A' | 'B+' | 'B' | 'C+' | 'C' | 'D+' | 'D' | 'F' {
-    const percentage = totalCount > 0 ? (winnerCount / totalCount) * 100 : 0;
-    
-    if (percentage >= 95) return 'A+';
-    if (percentage >= 90) return 'A';
-    if (percentage >= 85) return 'B+';
-    if (percentage >= 80) return 'B';
-    if (percentage >= 75) return 'C+';
-    if (percentage >= 70) return 'C';
-    if (percentage >= 65) return 'D+';
-    if (percentage >= 60) return 'D';
-    return 'F';
+  private getPicksForRoster(transaction: any, rosterId: number, direction: 'sent' | 'received'): any[] {
+    // Sleeper draft pick trading logic - will implement when we have real pick data
+    return [];
+  }
+
+  /**
+   * Get trade performance metrics for a manager
+   */
+  async getTradePerformanceMetrics(rosterId: number): Promise<TradePerformanceMetrics | null> {
+    try {
+      const trades = await this.getHistoricalTrades();
+      const managerTrades = trades.filter(trade => 
+        trade.participants.team_a.roster_id === rosterId || 
+        trade.participants.team_b.roster_id === rosterId
+      );
+
+      if (managerTrades.length === 0) {
+        return null;
+      }
+
+      const teams = await sleeperAPI.getTeams();
+      const team = teams.find(t => t.roster_id === rosterId);
+      
+      return {
+        manager_id: rosterId.toString(),
+        manager_name: team?.team_name || 'Unknown Manager',
+        total_trades: managerTrades.length,
+        immediate_wins: 0, // Will calculate from real analysis
+        long_term_wins: 0,
+        trade_accuracy: 0,
+        hindsight_score: 0,
+        best_position_traded: 'Unknown',
+        worst_position_traded: 'Unknown',
+        avg_trade_value: 0,
+        biggest_win: managerTrades[0], // Placeholder
+        biggest_loss: managerTrades[0] // Placeholder
+      };
+    } catch (error) {
+      console.error('Error getting trade performance metrics:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get position-specific trading analysis
+   */
+  async getPositionTradingAnalysis(position: string): Promise<any> {
+    try {
+      // This would analyze real trades involving specific positions
+      return {
+        position,
+        total_trades_involving: 0,
+        avg_value_retention_1yr: 0,
+        avg_value_retention_3yr: 0,
+        best_age_to_trade: 0,
+        worst_age_to_trade: 0,
+        injury_impact_factor: 0,
+        most_successful_trades: [],
+        biggest_busts: []
+      };
+    } catch (error) {
+      console.error('Error getting position trading analysis:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get trade learnings from historical data
+   */
+  async getTradeLearnings(): Promise<TradeLearning[]> {
+    try {
+      // This would analyze real trade patterns to generate insights
+      return [];
+    } catch (error) {
+      console.error('Error getting trade learnings:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get dynasty-specific learnings from historical data
+   */
+  async getDynastyLearnings(): Promise<any[]> {
+    try {
+      // This would analyze real trade patterns to generate dynasty-specific insights
+      return [];
+    } catch (error) {
+      console.error('Error getting dynasty learnings:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get manager trade performance analysis
+   */
+  async getManagerTradePerformance(managerId: string, teams: DookieTeam[]): Promise<any> {
+    try {
+      const trades = await this.getHistoricalTrades();
+      const managerTrades = trades.filter(trade => 
+        trade.participants.team_a.roster_id.toString() === managerId || 
+        trade.participants.team_b.roster_id.toString() === managerId
+      );
+
+      if (managerTrades.length === 0) {
+        return null;
+      }
+
+      const team = teams.find(t => t.roster_id.toString() === managerId);
+      
+      return {
+        manager_id: managerId,
+        manager_name: team?.team_name || 'Unknown Manager',
+        total_trades: managerTrades.length,
+        immediate_wins: 0, // Will calculate from real analysis
+        long_term_wins: 0,
+        trade_accuracy: 0,
+        hindsight_score: 0,
+        best_position_traded: 'Unknown',
+        worst_position_traded: 'Unknown',
+        avg_trade_value: 0,
+        biggest_win: managerTrades[0], // Placeholder
+        biggest_loss: managerTrades[0] // Placeholder
+      };
+    } catch (error) {
+      console.error('Error getting manager trade performance:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Track player values over time
+   */
+  async trackPlayerValues(playerIds: string[]): Promise<any[]> {
+    try {
+      // This would integrate with real player value APIs
+      return [];
+    } catch (error) {
+      console.error('Error tracking player values:', error);
+      return [];
+    }
   }
 }
 
-// Export singleton instance
 export const historicalTradeAPI = new HistoricalTradeService();
-export default historicalTradeAPI;

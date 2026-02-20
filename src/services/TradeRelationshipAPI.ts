@@ -35,11 +35,18 @@ class TradeRelationshipAPI {
    */
   async analyzeTradeRelationships(teams: DookieTeam[]): Promise<TradeWarAnalysis> {
     try {
-      // In a real league with trading data, this would fetch actual trades
-      // For now, we'll simulate some trade patterns for demonstration
-      const mockTradeData = await this.generateMockTradeData(teams);
+      // Get real trade data from Sleeper API
+      const realTrades = await sleeperAPI.getTrades();
       
-      return this.calculateTradeRelationships(teams, mockTradeData);
+      console.log(`🔍 Analyzing relationships from ${realTrades.length} real trades`);
+      
+      if (realTrades.length > 0) {
+        return this.calculateTradeRelationships(teams, realTrades);
+      } else {
+        console.log('⚠️ No trades found - analyzing based on current roster activity');
+        // No trades yet, analyze based on other activity patterns
+        return this.calculateRelationshipsWithoutTrades(teams);
+      }
     } catch (error) {
       console.error('Error analyzing trade relationships:', error);
       throw error;
@@ -47,7 +54,7 @@ class TradeRelationshipAPI {
   }
 
   /**
-   * Calculate relationships between all teams based on trade data
+   * Calculate relationships between all teams based on real trade data
    */
   private calculateTradeRelationships(teams: DookieTeam[], trades: any[]): TradeWarAnalysis {
     const relationships: TradeRelationship[] = [];
@@ -58,43 +65,51 @@ class TradeRelationshipAPI {
       teamTradeCount[String(team.roster_id)] = 0;
     });
 
-    // Calculate relationships between all team pairs
+    // Calculate relationships between all team pairs based on real trades
     for (let i = 0; i < teams.length; i++) {
       for (let j = i + 1; j < teams.length; j++) {
         const team1 = teams[i];
         const team2 = teams[j];
         
-        const tradesBetween = trades.filter(trade => 
-          (trade.roster_ids.includes(team1.roster_id) && 
-           trade.roster_ids.includes(team2.roster_id))
-        );
+        // Filter trades between these two teams
+        const tradesBetween = trades.filter(trade => {
+          const rosterIds = trade.roster_ids || [];
+          return rosterIds.includes(team1.roster_id) && rosterIds.includes(team2.roster_id);
+        });
 
         const tradeCount = tradesBetween.length;
         teamTradeCount[String(team1.roster_id)] += tradeCount;
         teamTradeCount[String(team2.roster_id)] += tradeCount;
 
-        // Determine relationship type and strength
+        // Determine relationship type and strength based on real trade frequency
         let relationshipType: 'allies' | 'enemies' | 'neutral' = 'neutral';
         let relationshipStrength = 0;
         let description = 'No trading history';
 
         if (tradeCount >= 3) {
           relationshipType = 'allies';
-          relationshipStrength = Math.min(100, tradeCount * 25);
-          description = `Trade partners - ${tradeCount} deals completed`;
+          relationshipStrength = Math.min(100, tradeCount * 30);
+          description = `Frequent trade partners - ${tradeCount} deals completed`;
         } else if (tradeCount === 0) {
-          // Teams that never trade might be rivals
-          const avgTrades = Object.values(teamTradeCount).reduce((a, b) => a + b, 0) / teams.length;
-          if (avgTrades > 2) {
+          // Check if these teams are avoiding each other in an active trading environment
+          const totalLeagueTrades = trades.length;
+          if (totalLeagueTrades > 10) {
             relationshipType = 'enemies';
-            relationshipStrength = 60;
-            description = 'Trade war - these teams avoid dealing with each other';
+            relationshipStrength = 40;
+            description = 'These teams rarely trade with each other';
+          } else {
+            description = 'No trades yet (early season or inactive trading period)';
           }
-        } else if (tradeCount === 1 || tradeCount === 2) {
+        } else if (tradeCount >= 1) {
           relationshipType = 'neutral';
-          relationshipStrength = tradeCount * 20;
+          relationshipStrength = tradeCount * 25;
           description = `Occasional trading partners - ${tradeCount} deal${tradeCount > 1 ? 's' : ''}`;
         }
+
+        // Calculate total estimated value of trades between teams
+        const totalValue = tradesBetween.reduce((sum, trade) => {
+          return sum + this.estimateTradeValue(trade);
+        }, 0);
 
         relationships.push({
           teamId1: String(team1.roster_id),
@@ -102,7 +117,7 @@ class TradeRelationshipAPI {
           tradeCount,
           relationshipType,
           relationshipStrength,
-          totalValue: tradesBetween.reduce((sum, trade) => sum + (trade.estimated_value || 0), 0),
+          totalValue,
           description,
           lastTradeDate: tradesBetween.length > 0 ? tradesBetween[0].created : undefined
         });
@@ -122,7 +137,7 @@ class TradeRelationshipAPI {
       .filter(([_, count]) => count <= 1)
       .map(([teamId]) => teamId);
 
-    // Calculate network centrality (how connected each team is)
+    // Calculate network centrality (how connected each team is in the trade network)
     const networkCentrality = teams.map(team => {
       const teamIdStr = String(team.roster_id);
       const connectedness = relationships
@@ -131,9 +146,12 @@ class TradeRelationshipAPI {
       
       return {
         teamId: teamIdStr,
-        centralityScore: Math.round(connectedness / relationships.length)
+        centralityScore: relationships.length > 0 ? Math.round(connectedness / relationships.length) : 0
       };
     }).sort((a, b) => b.centralityScore - a.centralityScore);
+
+    console.log(`✅ Analyzed ${relationships.length} team relationships from ${trades.length} trades`);
+    console.log(`📊 Found ${tradeAlliances.length} alliances, ${tradeWars.length} rivalries`);
 
     return {
       tradeWars,
@@ -145,67 +163,61 @@ class TradeRelationshipAPI {
   }
 
   /**
-   * Generate mock trade data for demonstration (until real trade data is available)
-   * This simulates realistic trading patterns
+   * Calculate relationships without trades (pre-season analysis)
    */
-  private async generateMockTradeData(teams: DookieTeam[]): Promise<any[]> {
-    const mockTrades = [];
-    const now = Date.now();
+  private async calculateRelationshipsWithoutTrades(teams: DookieTeam[]): Promise<TradeWarAnalysis> {
+    // In the absence of trade data, analyze based on other factors
+    console.log('📊 Calculating pre-season relationship analysis');
     
-    // Simulate some trade alliances (teams that trade frequently)
-    if (teams.length >= 4) {
-      // Alliance 1: Teams 0 and 1 trade frequently
-      mockTrades.push(
-        {
-          transaction_id: 'mock_1',
-          roster_ids: [String(teams[0].roster_id), String(teams[1].roster_id)],
-          created: now - (30 * 24 * 60 * 60 * 1000), // 30 days ago
-          estimated_value: 150
-        },
-        {
-          transaction_id: 'mock_2',
-          roster_ids: [String(teams[0].roster_id), String(teams[1].roster_id)],
-          created: now - (15 * 24 * 60 * 60 * 1000), // 15 days ago
-          estimated_value: 200
-        },
-        {
-          transaction_id: 'mock_3',
-          roster_ids: [String(teams[0].roster_id), String(teams[1].roster_id)],
-          created: now - (7 * 24 * 60 * 60 * 1000), // 7 days ago
-          estimated_value: 120
-        }
-      );
-
-      // Alliance 2: Teams 2 and 3 also trade
-      if (teams.length > 3) {
-        mockTrades.push(
-          {
-            transaction_id: 'mock_4',
-            roster_ids: [String(teams[2].roster_id), String(teams[3].roster_id)],
-            created: now - (20 * 24 * 60 * 60 * 1000),
-            estimated_value: 180
-          },
-          {
-            transaction_id: 'mock_5',
-            roster_ids: [String(teams[2].roster_id), String(teams[3].roster_id)],
-            created: now - (10 * 24 * 60 * 60 * 1000),
-            estimated_value: 90
-          }
-        );
-      }
-
-      // Some isolated trading
-      if (teams.length > 5) {
-        mockTrades.push({
-          transaction_id: 'mock_6',
-          roster_ids: [String(teams[4].roster_id), String(teams[5].roster_id)],
-          created: now - (25 * 24 * 60 * 60 * 1000),
-          estimated_value: 75
+    const relationships: TradeRelationship[] = [];
+    
+    // Create neutral relationships for all team pairs
+    for (let i = 0; i < teams.length; i++) {
+      for (let j = i + 1; j < teams.length; j++) {
+        const team1 = teams[i];
+        const team2 = teams[j];
+        
+        relationships.push({
+          teamId1: String(team1.roster_id),
+          teamId2: String(team2.roster_id),
+          tradeCount: 0,
+          relationshipType: 'neutral',
+          relationshipStrength: 0,
+          totalValue: 0,
+          description: 'No trading history yet - season hasn\'t begun',
         });
       }
     }
 
-    return mockTrades;
+    return {
+      tradeWars: [],
+      tradeAlliances: [],
+      mostActiveTraders: [],
+      isolatedTeams: teams.map(team => String(team.roster_id)), // All teams are "isolated" with no trades
+      networkCentrality: teams.map(team => ({
+        teamId: String(team.roster_id),
+        centralityScore: 0
+      }))
+    };
+  }
+
+  /**
+   * Analyze real trade data to estimate values
+   */
+  private estimateTradeValue(trade: any): number {
+    // Estimate trade value based on number of assets involved
+    let estimatedValue = 0;
+    
+    // Count players and picks involved
+    const totalAssets = (trade.adds?.length || 0) + (trade.draft_picks?.length || 0);
+    
+    // Base estimation: more complex trades typically involve higher values
+    if (totalAssets >= 6) estimatedValue = 200;
+    else if (totalAssets >= 4) estimatedValue = 150;
+    else if (totalAssets >= 2) estimatedValue = 100;
+    else estimatedValue = 50;
+    
+    return estimatedValue;
   }
 
   /**

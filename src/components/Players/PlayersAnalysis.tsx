@@ -143,7 +143,7 @@ const PlayersAnalysis: React.FC = () => {
   const currentPlayers = filteredPlayers.slice(indexOfFirstPlayer, indexOfLastPlayer);
   const totalPages = Math.ceil(filteredPlayers.length / playersPerPage);
 
-  const uniquePositions = [...new Set(players.map(p => p.position))].sort();
+  const uniquePositions = Array.from(new Set(players.map(p => p.position))).sort();
 
   const getTrendIcon = (trend: 'up' | 'down' | 'stable') => {
     switch (trend) {

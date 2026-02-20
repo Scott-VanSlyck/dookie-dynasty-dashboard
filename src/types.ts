@@ -2,8 +2,24 @@
  * Type definitions for Dookie Dynasty Dashboard
  */
 
-// Re-export types from SleeperAPI
-export type { DookieTeam, SleeperUser, SleeperRoster, SleeperLeague, MatchupResult } from './services/SleeperAPI';
+// Core team interface
+export interface DookieTeam {
+  roster_id: number;
+  owner_name: string;
+  team_name: string;
+  user_id: string;
+  avatar: string;
+  waiver_position: number;
+  record?: {
+    wins: number;
+    losses: number;
+  };
+  points_for?: number;
+  points_against?: number;
+}
+
+// Re-export other types from SleeperAPI
+export type { SleeperUser, SleeperRoster, SleeperLeague, MatchupResult } from './services/SleeperAPI';
 
 // Navigation types
 export interface NavigationItem {
@@ -32,6 +48,10 @@ export interface DashboardStats {
 // Tankathon types
 export interface TankathonData {
   team: DookieTeam;
+  current_pick: number;
+  projected_pick: number;
+  min_pick: number;
+  max_pick: number;
   currentRecord: {
     wins: number;
     losses: number;
@@ -41,6 +61,7 @@ export interface TankathonData {
     losses: number;
   };
   strengthOfSchedule: number;
+  lottery_odds: number;
   lotteryOdds: {
     position1: number;
     position2: number;
@@ -52,6 +73,24 @@ export interface TankathonData {
     worstCase: number;
     mostLikely: number;
   };
+  elimination_scenario: string;
+  games_remaining: number;
+}
+
+export interface WeeklyMatchup {
+  week: number;
+  matchup_id: number;
+  roster_id: number;
+  players: string[];
+  starters: string[];
+  points: number;
+}
+
+export interface SeasonData {
+  season: string;
+  teams: DookieTeam[];
+  matchups: WeeklyMatchup[];
+  transactions: Trade[];
 }
 
 // Player types
@@ -68,6 +107,19 @@ export interface Player {
   injury_status?: string;
 }
 
+export interface PlayerValue {
+  player_id: string;
+  name: string;
+  position: string;
+  team?: string;
+  value: number;
+  dynasty_rank: number;
+  redraft_rank?: number;
+  trend: 'up' | 'down' | 'stable';
+  age?: number;
+  years_exp?: number;
+}
+
 // Trade types
 export interface Trade {
   transaction_id: string;
@@ -80,6 +132,45 @@ export interface Trade {
   adds?: { [player_id: string]: string };
   drops?: { [player_id: string]: string };
   draft_picks?: DraftPick[];
+}
+
+export interface HistoricalTrade {
+  id: string;
+  date: string;
+  status: string;
+  teams: DookieTeam[];
+  participants: any;
+  analysis: any;
+  consensus: any;
+  metadata: any;
+}
+
+export interface TradePerformanceMetrics {
+  [key: string]: any;
+}
+
+export interface PositionTradingAnalysis {
+  [key: string]: any;
+}
+
+export interface TradeLearning {
+  [key: string]: any;
+}
+
+export interface TradeAnalysisPoint {
+  id: string;
+  date: string;
+  analysis: any;
+  consensus: any;
+  metadata: any;
+}
+
+export interface HistoricalPlayerValue {
+  player_id: string;
+  date: string;
+  value: number;
+  rank: number;
+  trend: 'up' | 'down' | 'stable';
 }
 
 export interface DraftPick {
@@ -152,6 +243,12 @@ export interface LotteryOdds {
     third: number;
     top6: number;
   };
+}
+
+export interface LotteryResult {
+  pick: number;
+  team: DookieTeam;
+  timestamp: string;
 }
 
 // Fantasy scoring types

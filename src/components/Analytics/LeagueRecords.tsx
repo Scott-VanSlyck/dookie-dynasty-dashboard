@@ -269,22 +269,96 @@ const LeagueRecords: React.FC<LeagueRecordsProps> = ({ teams, loading }) => {
     return titleMap[type] || 'Record';
   };
 
-  // Create mock milestone data
-  const milestones = [
-    { id: 1, title: '1000 Career Points', team: teams[0], achieved: '2023-09-15', description: 'First team to reach 1000 career points' },
-    { id: 2, title: '50 Career Wins', team: teams[1], achieved: '2024-01-20', description: 'Reached 50 career wins milestone' },
-    { id: 3, title: '5 Playoff Appearances', team: teams[2], achieved: '2024-12-10', description: 'Fifth consecutive playoff appearance' },
-    { id: 4, title: 'Perfect Regular Season', team: teams[0], achieved: '2023-12-31', description: '14-0 regular season record' }
-  ];
+  // Calculate real milestones from historical and current data
+  const calculateRealMilestones = () => {
+    const milestones: any[] = [];
+    
+    // Find teams with significant achievements
+    teams.forEach((team, index) => {
+      const totalPoints = team.points_for || 0;
+      const totalWins = team.record?.wins || 0;
+      
+      // Career points milestones
+      if (totalPoints >= 1000) {
+        milestones.push({
+          id: `points_${team.roster_id}`,
+          title: `${Math.round(totalPoints)} Career Points`,
+          team,
+          achieved: new Date().toISOString().split('T')[0],
+          description: `Accumulated ${Math.round(totalPoints)} points in current season`
+        });
+      }
+      
+      // Win milestones
+      if (totalWins >= 5) {
+        milestones.push({
+          id: `wins_${team.roster_id}`,
+          title: `${totalWins} Season Wins`,
+          team,
+          achieved: new Date().toISOString().split('T')[0],
+          description: `Currently ${totalWins} wins in the season`
+        });
+      }
+      
+      // Perfect start milestone
+      if (totalWins > 0 && (team.record?.losses || 0) === 0) {
+        milestones.push({
+          id: `perfect_${team.roster_id}`,
+          title: 'Perfect Start',
+          team,
+          achieved: new Date().toISOString().split('T')[0],
+          description: `Undefeated with ${totalWins}-0 record`
+        });
+      }
+    });
+    
+    return milestones.slice(0, 6); // Top 6 milestones
+  };
 
-  // Create record progression data
-  const recordProgression = [
-    { season: '2020', highest_score: 145.2, lowest_score: 67.3 },
-    { season: '2021', highest_score: 162.8, lowest_score: 58.9 },
-    { season: '2022', highest_score: 178.4, lowest_score: 42.3 },
-    { season: '2023', highest_score: 189.7, lowest_score: 51.2 },
-    { season: '2024', highest_score: 198.4, lowest_score: 64.8 }
-  ];
+  const milestones = calculateRealMilestones();
+
+  // Calculate real record progression from historical data
+  const calculateRecordProgression = () => {
+    if (seasonRecords.length === 0) {
+      return []; // No data available
+    }
+    
+    // Group records by season and calculate progression
+    const seasons: { [year: string]: { highest_score: number; lowest_score: number } } = {};
+    
+    seasonRecords.forEach(record => {
+      const year = record.season;
+      if (!seasons[year]) {
+        seasons[year] = { highest_score: 0, lowest_score: 9999 };
+      }
+      
+      if (record.type === 'highest_pf') {
+        seasons[year].highest_score = Math.max(seasons[year].highest_score, record.value);
+      }
+    });
+    
+    // Add current season estimates
+    const currentYear = new Date().getFullYear().toString();
+    const maxCurrentPF = Math.max(...teams.map(t => t.points_for || 0));
+    const minCurrentPF = Math.min(...teams.map(t => t.points_for || 100));
+    
+    if (maxCurrentPF > 0) {
+      seasons[currentYear] = {
+        highest_score: maxCurrentPF,
+        lowest_score: minCurrentPF
+      };
+    }
+    
+    return Object.entries(seasons)
+      .map(([season, data]) => ({
+        season,
+        highest_score: Math.round(data.highest_score * 100) / 100,
+        lowest_score: Math.round(data.lowest_score * 100) / 100
+      }))
+      .sort((a, b) => parseInt(a.season) - parseInt(b.season));
+  };
+
+  const recordProgression = calculateRecordProgression();
 
   if (loading || recordsLoading) {
     return (
