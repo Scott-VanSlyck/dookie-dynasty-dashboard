@@ -201,6 +201,61 @@ class SleeperAPIService {
   }
 
   /**
+   * Get all transactions (trades, waivers, etc.) for current season
+   */
+  async getTransactions(week?: number): Promise<any[]> {
+    try {
+      const url = week 
+        ? `${this.baseURL}/league/${this.leagueId}/transactions/${week}`
+        : `${this.baseURL}/league/${this.leagueId}/transactions/1`; // Start from week 1
+      
+      const response = await axios.get(url);
+      return response.data || [];
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
+      return []; // Return empty array instead of throwing
+    }
+  }
+
+  /**
+   * Get all transactions for multiple weeks
+   */
+  async getAllTransactions(): Promise<any[]> {
+    try {
+      const allTransactions = [];
+      // Try to get transactions for weeks 1-18 (full season)
+      for (let week = 1; week <= 18; week++) {
+        try {
+          const weekTransactions = await this.getTransactions(week);
+          allTransactions.push(...weekTransactions);
+        } catch (error) {
+          // Skip weeks with no data
+          continue;
+        }
+      }
+      return allTransactions;
+    } catch (error) {
+      console.error('Error fetching all transactions:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get only trades (filter out waivers, etc.)
+   */
+  async getTrades(): Promise<any[]> {
+    try {
+      const allTransactions = await this.getAllTransactions();
+      return allTransactions.filter(transaction => 
+        transaction.type === 'trade'
+      );
+    } catch (error) {
+      console.error('Error fetching trades:', error);
+      return [];
+    }
+  }
+
+  /**
    * Get draft data for the league
    */
   async getDraftData(): Promise<any[]> {
