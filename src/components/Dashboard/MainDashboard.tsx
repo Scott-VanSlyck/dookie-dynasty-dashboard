@@ -40,7 +40,8 @@ import {
   Assessment as AssessmentIcon,
   EmojiEvents as TrophyIcon,
   School as SchoolIcon,
-  Bolt
+  Bolt,
+  Psychology as PsychologyIcon
 } from '@mui/icons-material';
 import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 
@@ -57,6 +58,7 @@ import HistoricalTradeTracker from '../Trading/HistoricalTradeTracker';
 import TeamAnalytics from '../Analytics/TeamAnalytics';
 import LeagueRecords from '../Analytics/LeagueRecords';
 import ImpactfulPerformances from '../Analytics/ImpactfulPerformances';
+import EngagementDashboard from '../Engagement/EngagementDashboard';
 
 // Services
 import { sleeperAPI } from '../../services/SleeperAPI';
@@ -167,6 +169,13 @@ const navigationItems: NavigationItem[] = [
     description: 'Track trades over time: immediate vs long-term winners'
   },
   {
+    id: 'engagement',
+    label: 'Dynasty Hub',
+    icon: 'psychology',
+    path: '/engagement',
+    description: 'Trade wars, achievements, and team personalities'
+  },
+  {
     id: 'team_analytics',
     label: 'Team Analytics',
     icon: 'assessment',
@@ -200,7 +209,8 @@ const iconMap: { [key: string]: React.ReactNode } = {
   assessment: <AssessmentIcon />,
   trophy: <TrophyIcon />,
   school: <SchoolIcon />,
-  bolt: <Bolt />
+  bolt: <Bolt />,
+  psychology: <PsychologyIcon />
 };
 
 interface MainDashboardProps {}
@@ -526,6 +536,10 @@ const MainDashboard: React.FC<MainDashboardProps> = () => {
             <Route
               path="/historical-trades"
               element={<HistoricalTradeTracker teams={teams} loading={loading} />}
+            />
+            <Route
+              path="/engagement"
+              element={<EngagementDashboard teams={teams} loading={loading} />}
             />
             <Route
               path="/team-analytics"
