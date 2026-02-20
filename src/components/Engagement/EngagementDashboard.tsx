@@ -67,10 +67,10 @@ const EngagementDashboard: React.FC<EngagementDashboardProps> = ({ teams, loadin
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (teams.length > 0) {
+    if (teams.length > 0 && !dataLoading) {
       loadEngagementData();
     }
-  }, [teams]);
+  }, [teams.length]); // Only depend on teams.length to avoid infinite loops
 
   const loadEngagementData = async () => {
     try {
