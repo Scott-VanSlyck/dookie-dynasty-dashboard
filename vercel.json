@@ -1,4 +1,5 @@
 {
+  "name": "dookie-dynasty-dashboard",
   "version": 2,
   "builds": [
     {
@@ -12,11 +13,16 @@
   "routes": [
     {
       "src": "/static/(.*)",
-      "dest": "/static/$1"
+      "headers": {
+        "cache-control": "public, max-age=31536000, immutable"
+      }
     },
     {
       "src": "/(.*)",
       "dest": "/index.html"
     }
-  ]
+  ],
+  "env": {
+    "CI": "false"
+  }
 }
