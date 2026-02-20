@@ -39,6 +39,7 @@ import {
 import { keyframes } from '@emotion/react';
 
 import { DookieTeam, LotteryResult } from '../../types';
+import { historicalSleeperAPI, DraftLotteryTeam } from '../../services/HistoricalSleeperAPI';
 import { runWeightedLottery, runEqualLottery, LOTTERY_ODDS, getOrdinalSuffix } from '../../utils/calculations';
 
 interface DraftLotteryProps {
@@ -60,27 +61,73 @@ const confetti = keyframes`
 `;
 
 const DraftLottery: React.FC<DraftLotteryProps> = ({ teams }) => {
-  const [lotteryTeams, setLotteryTeams] = useState<DookieTeam[]>([]);
+  const [lotteryTeams, setLotteryTeams] = useState<DraftLotteryTeam[]>([]);
   const [lotteryResults, setLotteryResults] = useState<LotteryResult[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [currentPick, setCurrentPick] = useState(0);
   const [showResults, setShowResults] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [resultsDialog, setResultsDialog] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [historicalDataAvailable, setHistoricalDataAvailable] = useState(false);
 
   useEffect(() => {
-    // Get bottom 6 teams for lottery based on current waiver order
-    // Pre-draft: waiver_position represents draft order (inverse of last season standings)
+    loadHistoricalLotteryData();
+  }, [teams]);
+
+  const loadHistoricalLotteryData = async () => {
+    try {
+      setLoading(true);
+      console.log('🎰 Loading historical data for draft lottery...');
+      
+      const multiSeasonData = await historicalSleeperAPI.getMultiSeasonData();
+      
+      if (multiSeasonData.draft_lottery_odds.length > 0) {
+        console.log(`✅ Found ${multiSeasonData.draft_lottery_odds.length} lottery eligible teams based on last season`);
+        setLotteryTeams(multiSeasonData.draft_lottery_odds);
+        setHistoricalDataAvailable(true);
+      } else {
+        console.log('⚠️ No historical data available, using waiver position fallback');
+        // Fallback to waiver position method
+        const fallbackLottery = generateFallbackLottery(teams);
+        setLotteryTeams(fallbackLottery);
+        setHistoricalDataAvailable(false);
+      }
+    } catch (error) {
+      console.error('Error loading lottery data:', error);
+      // Use fallback method
+      const fallbackLottery = generateFallbackLottery(teams);
+      setLotteryTeams(fallbackLottery);
+      setHistoricalDataAvailable(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const generateFallbackLottery = (teams: DookieTeam[]): DraftLotteryTeam[] => {
+    // Fallback to waiver position when historical data isn't available
     const sortedTeams = teams.slice().sort((a, b) => {
-      // Higher waiver position = worse previous season record = better lottery odds
       const aPosition = a.waiver_position || 1;
       const bPosition = b.waiver_position || 1;
-      
-      return bPosition - aPosition; // Worst teams (highest waiver pos) first
+      return bPosition - aPosition; // Worst teams first
     });
 
-    setLotteryTeams(sortedTeams.slice(0, 6));
-  }, [teams]);
+    const lotteryOdds = [
+      { first_pick: 25.0, top_3: 64.3, top_6: 100.0 },
+      { first_pick: 19.9, top_3: 55.8, top_6: 100.0 },
+      { first_pick: 15.6, top_3: 46.9, top_6: 100.0 },
+      { first_pick: 11.9, top_3: 37.2, top_6: 100.0 },
+      { first_pick: 8.8, top_3: 26.2, top_6: 100.0 },
+      { first_pick: 6.7, top_3: 18.8, top_6: 100.0 }
+    ];
+
+    return sortedTeams.slice(0, 6).map((team, index) => ({
+      team,
+      previous_season_rank: 12 - index, // Estimate based on waiver position
+      lottery_position: index + 1,
+      odds: lotteryOdds[index] || { first_pick: 0, top_3: 0, top_6: 100.0 }
+    }));
+  };
 
   const startLottery = async (weighted: boolean = true) => {
     if (isRunning || lotteryTeams.length === 0) return;
@@ -144,7 +191,7 @@ const DraftLottery: React.FC<DraftLotteryProps> = ({ teams }) => {
       
       results.push({
         pick,
-        team: winner,
+        team: winner.team, // Extract DookieTeam from DraftLotteryTeam
         timestamp: new Date().toISOString()
       });
       
@@ -174,7 +221,7 @@ const DraftLottery: React.FC<DraftLotteryProps> = ({ teams }) => {
       
       results.push({
         pick,
-        team: winner,
+        team: winner.team, // Extract DookieTeam from DraftLotteryTeam
         timestamp: new Date().toISOString()
       });
       
@@ -480,36 +527,87 @@ const DraftLottery: React.FC<DraftLotteryProps> = ({ teams }) => {
           {/* Lottery Odds Reference */}
           <Card>
             <CardContent>
-              <Typography variant="h6" gutterBottom>
-                📈 Weighted Lottery Odds
+              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                📈 Draft Lottery Odds
+                {historicalDataAvailable && (
+                  <Chip 
+                    label="Based on Last Season" 
+                    color="success" 
+                    size="small" 
+                    variant="outlined"
+                  />
+                )}
+                {!historicalDataAvailable && (
+                  <Chip 
+                    label="Estimated" 
+                    color="warning" 
+                    size="small" 
+                    variant="outlined"
+                  />
+                )}
               </Typography>
               <Typography variant="body2" color="text.secondary" paragraph>
-                1/2.5 drop system for bottom 6 teams:
+                {historicalDataAvailable 
+                  ? "Lottery odds based on previous season final standings:"
+                  : "Estimated lottery odds (no historical data available):"
+                }
               </Typography>
-              <TableContainer>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Rank</TableCell>
-                      <TableCell align="right">Odds</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {LOTTERY_ODDS.map((odds, index) => (
-                      <TableRow key={index}>
-                        <TableCell>{getOrdinalSuffix(index + 1)} worst</TableCell>
-                        <TableCell align="right">
-                          <Chip
-                            label={`${odds}%`}
-                            size="small"
-                            color={odds >= 20 ? 'success' : odds >= 8 ? 'warning' : 'default'}
-                          />
-                        </TableCell>
+              {loading ? (
+                <LinearProgress />
+              ) : (
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Team</TableCell>
+                        <TableCell align="center">Previous Rank</TableCell>
+                        <TableCell align="right">1st Pick</TableCell>
+                        <TableCell align="right">Top 3</TableCell>
+                        <TableCell align="right">Top 6</TableCell>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+                    </TableHead>
+                    <TableBody>
+                      {lotteryTeams.map((lotteryTeam, index) => (
+                        <TableRow key={lotteryTeam.team.roster_id}>
+                          <TableCell>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Avatar sx={{ width: 24, height: 24 }}>
+                                {lotteryTeam.team.avatar || '🏈'}
+                              </Avatar>
+                              <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                                {lotteryTeam.team.team_name}
+                              </Typography>
+                            </Box>
+                          </TableCell>
+                          <TableCell align="center">
+                            <Chip 
+                              label={`${lotteryTeam.previous_season_rank}/12`}
+                              size="small" 
+                              color="error"
+                              variant="outlined"
+                            />
+                          </TableCell>
+                          <TableCell align="right">
+                            <Typography sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                              {lotteryTeam.odds.first_pick.toFixed(1)}%
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="right">
+                            <Typography sx={{ color: 'success.main' }}>
+                              {lotteryTeam.odds.top_3.toFixed(1)}%
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="right">
+                            <Typography sx={{ color: 'info.main' }}>
+                              {lotteryTeam.odds.top_6.toFixed(1)}%
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
             </CardContent>
           </Card>
         </Grid>
