@@ -146,13 +146,27 @@ class SleeperAPIService {
         return acc;
       }, {} as Record<string, SleeperUser>);
 
+      console.log('🏈 Processing teams data...');
+
       // Combine roster and user data
       const teams: DookieTeam[] = rosters.map(roster => {
         const user = userMap[roster.owner_id];
+        
+        // Better team name fallback logic - use actual team name or create a readable fallback
+        let teamName = 'Unknown Team';
+        if (user?.metadata?.team_name) {
+          teamName = user.metadata.team_name;
+        } else if (user?.display_name) {
+          // Create a readable fallback instead of generic "Team X"
+          teamName = `${user.display_name}'s Team`;
+        }
+
+        console.log(`📋 Team ${roster.roster_id}: "${teamName}" (Owner: ${user?.display_name || 'Unknown'})`);
+        
         return {
           roster_id: roster.roster_id,
           owner_name: user?.display_name || 'Unknown',
-          team_name: user?.metadata?.team_name || `Team ${user?.display_name}` || 'Unknown Team',
+          team_name: teamName,
           user_id: roster.owner_id,
           avatar: user?.avatar || '',
           waiver_position: roster.settings.waiver_position,
@@ -166,7 +180,14 @@ class SleeperAPIService {
       });
 
       // Sort by waiver position (standings)
-      return teams.sort((a, b) => a.waiver_position - b.waiver_position);
+      const sortedTeams = teams.sort((a, b) => a.waiver_position - b.waiver_position);
+      
+      console.log('✅ Teams processed successfully:');
+      sortedTeams.forEach(team => {
+        console.log(`  ${team.waiver_position}. ${team.team_name} (${team.record?.wins || 0}-${team.record?.losses || 0})`);
+      });
+      
+      return sortedTeams;
     } catch (error) {
       console.error('Error fetching teams:', error);
       throw new Error('Failed to fetch team data');

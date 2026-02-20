@@ -51,29 +51,54 @@ const TankathonView: React.FC<TankathonViewProps> = ({ teams }) => {
   const [selectedTeam, setSelectedTeam] = useState<string>('');
   const [simulations, setSimulations] = useState<Map<string, number[]>>(new Map());
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     updateTankathonData();
   }, [teams, weeksRemaining]);
 
   const updateTankathonData = () => {
-    if (teams.length === 0) return;
-    
-    const data = generateTankathonData(teams, weeksRemaining);
-    setTankathonData(data);
-    
-    if (!selectedTeam && data.length > 0) {
-      setSelectedTeam(data[0].team.user_id);
+    try {
+      setError(null);
+      console.log('updateTankathonData called with teams:', teams?.length || 0);
+      
+      if (!teams || teams.length === 0) {
+        console.warn('No teams available for tankathon data');
+        setTankathonData([]);
+        return;
+      }
+      
+      const data = generateTankathonData(teams, weeksRemaining);
+      console.log('Generated tankathon data:', data.length, 'entries');
+      setTankathonData(data);
+      
+      if (!selectedTeam && data.length > 0) {
+        const firstTeamId = data[0].team?.user_id;
+        if (firstTeamId) {
+          setSelectedTeam(firstTeamId);
+        }
+      }
+    } catch (err) {
+      console.error('Error updating tankathon data:', err);
+      setError('Failed to generate tankathon data. Please try again.');
+      setTankathonData([]);
     }
   };
 
   const runSimulations = async () => {
     setLoading(true);
     try {
+      if (!teams || teams.length === 0) {
+        setError('No teams available for simulation');
+        return;
+      }
+      
       const results = simulateSeasonOutcomes(teams, 1000);
       setSimulations(results);
+      setError(null);
     } catch (error) {
       console.error('Error running simulations:', error);
+      setError('Failed to run simulations. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -95,6 +120,42 @@ const TankathonView: React.FC<TankathonViewProps> = ({ teams }) => {
   };
 
   const selectedTeamData = tankathonData.find(data => data.team.user_id === selectedTeam);
+
+  // Handle loading and error states
+  if (error) {
+    return (
+      <Box sx={{ p: 4, textAlign: 'center' }}>
+        <Alert severity="error" sx={{ mb: 4 }}>
+          <Typography variant="h6">Tankathon Error</Typography>
+          <Typography>{error}</Typography>
+        </Alert>
+        <Button variant="contained" onClick={updateTankathonData}>
+          Retry
+        </Button>
+      </Box>
+    );
+  }
+
+  if (!teams || teams.length === 0) {
+    return (
+      <Box sx={{ p: 4, textAlign: 'center' }}>
+        <Alert severity="info" sx={{ mb: 4 }}>
+          <Typography variant="h6">No Team Data</Typography>
+          <Typography>No teams available to display tankathon information.</Typography>
+        </Alert>
+      </Box>
+    );
+  }
+
+  if (tankathonData.length === 0) {
+    return (
+      <Box sx={{ p: 4, textAlign: 'center' }}>
+        <Typography variant="h6" color="text.secondary">
+          Loading tankathon data...
+        </Typography>
+      </Box>
+    );
+  }
 
   return (
     <Box>
@@ -172,74 +233,84 @@ const TankathonView: React.FC<TankathonViewProps> = ({ teams }) => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {tankathonData.map((data, index) => (
-                      <TableRow 
-                        key={data.team.roster_id}
-                        sx={{ 
-                          bgcolor: selectedTeam === data.team.user_id ? 'primary.main' : 'inherit',
-                          color: selectedTeam === data.team.user_id ? 'primary.contrastText' : 'inherit',
-                          '&:hover': {
-                            bgcolor: selectedTeam === data.team.user_id ? 'primary.dark' : 'action.hover'
-                          }
-                        }}
-                      >
-                        <TableCell>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                            <Avatar
-                              sx={{ 
-                                bgcolor: index < 3 ? 'warning.main' : 'primary.main',
-                                width: 32,
-                                height: 32
-                              }}
-                            >
-                              {data.team.owner_name.charAt(0)}
-                            </Avatar>
-                            <Box>
-                              <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-                                {data.team.team_name}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                {data.team.record?.wins || 0}-{data.team.record?.losses || 0} ({formatPercentage(calculateWinPercentage(data.team.record?.wins || 0, data.team.record?.losses || 0))})
-                              </Typography>
+                    {tankathonData.map((data, index) => {
+                      // Safe data extraction with fallbacks
+                      const teamId = data.team?.roster_id || data.team?.user_id || index;
+                      const ownerName = data.team?.owner_name || 'Unknown Owner';
+                      const teamName = data.team?.team_name || 'Unknown Team';
+                      const wins = data.currentRecord?.wins || data.team?.record?.wins || 0;
+                      const losses = data.currentRecord?.losses || data.team?.record?.losses || 0;
+                      const winPct = calculateWinPercentage(wins, losses);
+
+                      return (
+                        <TableRow 
+                          key={teamId}
+                          sx={{ 
+                            bgcolor: selectedTeam === data.team?.user_id ? 'primary.main' : 'inherit',
+                            color: selectedTeam === data.team?.user_id ? 'primary.contrastText' : 'inherit',
+                            '&:hover': {
+                              bgcolor: selectedTeam === data.team?.user_id ? 'primary.dark' : 'action.hover'
+                            }
+                          }}
+                        >
+                          <TableCell>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                              <Avatar
+                                sx={{ 
+                                  bgcolor: index < 3 ? 'warning.main' : 'primary.main',
+                                  width: 32,
+                                  height: 32
+                                }}
+                              >
+                                {ownerName.charAt(0).toUpperCase()}
+                              </Avatar>
+                              <Box>
+                                <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+                                  {teamName}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  {wins}-{losses} ({formatPercentage(winPct)})
+                                </Typography>
+                              </Box>
                             </Box>
-                          </Box>
-                        </TableCell>
-                        <TableCell align="center">
-                          <Chip
-                            label={getOrdinalSuffix(data.current_pick)}
-                            color={data.current_pick <= 3 ? 'success' : data.current_pick <= 6 ? 'warning' : 'default'}
-                            size="small"
-                          />
-                        </TableCell>
-                        <TableCell align="center">
-                          <Chip
-                            label={getOrdinalSuffix(data.projected_pick)}
-                            color={data.projected_pick <= 3 ? 'success' : data.projected_pick <= 6 ? 'warning' : 'default'}
-                            size="small"
-                            variant="outlined"
-                          />
-                        </TableCell>
-                        <TableCell align="center">
-                          <Typography variant="body2">
-                            {getOrdinalSuffix(data.min_pick)} - {getOrdinalSuffix(data.max_pick)}
-                          </Typography>
-                        </TableCell>
-                        <TableCell align="center">
-                          <Tooltip title={`${data.lottery_odds}% chance at #1 pick`}>
+                          </TableCell>
+                          <TableCell align="center">
                             <Chip
-                              label={`${data.lottery_odds}%`}
-                              color={data.lottery_odds >= 20 ? 'success' : data.lottery_odds >= 8 ? 'warning' : 'default'}
+                              label={getOrdinalSuffix(data.current_pick || index + 1)}
+                              color={(data.current_pick || index + 1) <= 3 ? 'success' : (data.current_pick || index + 1) <= 6 ? 'warning' : 'default'}
                               size="small"
                             />
-                          </Tooltip>
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="caption" color="text.secondary">
-                            {data.elimination_scenario}
-                          </Typography>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                          </TableCell>
+                          <TableCell align="center">
+                            <Chip
+                              label={getOrdinalSuffix(data.projected_pick || data.current_pick || index + 1)}
+                              color={(data.projected_pick || data.current_pick || index + 1) <= 3 ? 'success' : (data.projected_pick || data.current_pick || index + 1) <= 6 ? 'warning' : 'default'}
+                              size="small"
+                              variant="outlined"
+                            />
+                          </TableCell>
+                          <TableCell align="center">
+                            <Typography variant="body2">
+                              {getOrdinalSuffix(data.min_pick || data.current_pick || index + 1)} - {getOrdinalSuffix(data.max_pick || data.current_pick || index + 1)}
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="center">
+                            <Tooltip title={`${data.lottery_odds || 0}% chance at #1 pick`}>
+                              <Chip
+                                label={`${data.lottery_odds || 0}%`}
+                                color={(data.lottery_odds || 0) >= 20 ? 'success' : (data.lottery_odds || 0) >= 8 ? 'warning' : 'default'}
+                                size="small"
+                              />
+                            </Tooltip>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="caption" color="text.secondary">
+                              {data.elimination_scenario || 'Status unknown'}
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </TableContainer>

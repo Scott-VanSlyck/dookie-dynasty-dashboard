@@ -249,12 +249,26 @@ class HistoricalSleeperService {
   }
 
   private buildTeamsFromHistoricalData(rosters: SleeperRoster[], users: SleeperUser[], year: string): DookieTeam[] {
+    console.log(`🏛️ Building teams from historical data for ${year}...`);
+    
     return rosters.map(roster => {
       const user = users.find(u => u.user_id === roster.owner_id);
+      
+      // Better team name fallback logic for historical data
+      let teamName = 'Unknown Team';
+      if (user?.metadata?.team_name) {
+        teamName = user.metadata.team_name;
+      } else if (user?.display_name) {
+        // Create a readable fallback instead of generic "Team X (year)"
+        teamName = `${user.display_name}'s Team`;
+      }
+
+      console.log(`📋 Historical Team ${roster.roster_id} (${year}): "${teamName}" (Owner: ${user?.display_name || 'Unknown'})`);
+      
       return {
         roster_id: roster.roster_id,
         owner_name: user?.display_name || user?.username || 'Unknown',
-        team_name: user?.metadata?.team_name || `${user?.display_name || 'Team'} (${year})`,
+        team_name: teamName,
         user_id: roster.owner_id,
         avatar: user?.avatar || '',
         waiver_position: roster.settings.waiver_position || 1,
@@ -300,10 +314,15 @@ class HistoricalSleeperService {
   }
 
   private buildTeamFromRoster(roster: SleeperRoster, year: string): DookieTeam {
+    // This method is used when we don't have user data - create a more readable fallback
+    const teamName = `Roster ${roster.roster_id} (${year})`;
+    
+    console.log(`📋 Building standalone team from roster: "${teamName}"`);
+    
     return {
       roster_id: roster.roster_id,
       owner_name: 'Historical Team',
-      team_name: `Team ${roster.roster_id} (${year})`,
+      team_name: teamName,
       user_id: roster.owner_id,
       avatar: '',
       waiver_position: roster.settings.waiver_position || 1,

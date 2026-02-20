@@ -307,96 +307,182 @@ export const runEqualLottery = (teams: any[]): any[] => {
  * Generate Tankathon data for draft positioning analysis
  */
 export const generateTankathonData = (teams: any[], weeksRemaining: number = 3): any[] => {
-  // Sort teams by record (worst first for draft positioning)
-  const sortedTeams = [...teams].sort((a, b) => {
-    const aWinPct = calculateWinPercentage(a.record?.wins || 0, a.record?.losses || 0);
-    const bWinPct = calculateWinPercentage(b.record?.wins || 0, b.record?.losses || 0);
-    return aWinPct - bWinPct;
-  });
+  console.log('generateTankathonData called with teams:', teams.length, 'weeksRemaining:', weeksRemaining);
+  
+  if (!teams || teams.length === 0) {
+    console.warn('No teams provided to generateTankathonData');
+    return [];
+  }
 
-  return sortedTeams.map((team, index) => {
-    const currentWins = team.record?.wins || 0;
-    const currentLosses = team.record?.losses || 0;
-    const currentWinPct = calculateWinPercentage(currentWins, currentLosses);
-    
-    // Simulate potential draft positions
-    const currentPosition = index + 1;
-    const bestCaseWins = Math.min(weeksRemaining, weeksRemaining); // Win all remaining
-    const worstCaseLosses = Math.min(weeksRemaining, weeksRemaining); // Lose all remaining
-    
-    const maxPossibleWins = currentWins + bestCaseWins;
-    const maxPossibleLosses = currentLosses + worstCaseLosses;
-    
-    return {
-      team,
-      current_pick: currentPosition,
-      projected_pick: currentPosition, // Simplified - would be more complex in reality
-      max_pick: Math.min(12, currentPosition + 2), // Best case scenario
-      min_pick: Math.max(1, currentPosition - 2), // Worst case scenario
-      lottery_odds: currentPosition <= 6 ? LOTTERY_ODDS[currentPosition - 1] || 5 : 0,
-      games_remaining: weeksRemaining,
-      max_points_possible: (team.points_for || 0) + (weeksRemaining * 120), // Estimate 120 ppg
-      elimination_scenario: currentPosition <= 6 
-        ? `Need ${Math.max(0, 3 - currentWins)} more losses to secure lottery position`
-        : 'Not in lottery contention'
-    };
-  });
+  try {
+    // Sort teams by record (worst first for draft positioning)
+    const sortedTeams = [...teams].sort((a, b) => {
+      const aWins = a.record?.wins || 0;
+      const aLosses = a.record?.losses || 0;
+      const bWins = b.record?.wins || 0;
+      const bLosses = b.record?.losses || 0;
+      
+      const aWinPct = calculateWinPercentage(aWins, aLosses);
+      const bWinPct = calculateWinPercentage(bWins, bLosses);
+      return aWinPct - bWinPct;
+    });
+
+    const tankathonData = sortedTeams.map((team, index) => {
+      try {
+        const currentWins = team.record?.wins || 0;
+        const currentLosses = team.record?.losses || 0;
+        const currentWinPct = calculateWinPercentage(currentWins, currentLosses);
+        
+        // Simulate potential draft positions
+        const currentPosition = index + 1;
+        
+        // Calculate potential range based on remaining games
+        const maxAdditionalWins = weeksRemaining;
+        const maxAdditionalLosses = weeksRemaining;
+        
+        // Estimate position range (simplified calculation)
+        const positionVariance = Math.min(3, Math.ceil(weeksRemaining / 2));
+        const minPick = Math.max(1, currentPosition - positionVariance);
+        const maxPick = Math.min(teams.length, currentPosition + positionVariance);
+        
+        // Get lottery odds (safe array access)
+        const lotteryPosition = Math.max(0, currentPosition - 1);
+        const baseLotteryOdds = lotteryPosition < LOTTERY_ODDS.length ? LOTTERY_ODDS[lotteryPosition] : 0;
+        
+        return {
+          team,
+          current_pick: currentPosition,
+          projected_pick: currentPosition, // Simplified - would be more complex in reality
+          min_pick: minPick,
+          max_pick: maxPick,
+          currentRecord: {
+            wins: currentWins,
+            losses: currentLosses
+          },
+          projectedRecord: {
+            wins: currentWins + Math.floor(weeksRemaining / 2), // Estimate 50% win rate
+            losses: currentLosses + Math.ceil(weeksRemaining / 2)
+          },
+          strengthOfSchedule: 0.5, // Placeholder
+          lottery_odds: baseLotteryOdds,
+          lotteryOdds: {
+            position1: currentPosition <= 6 ? baseLotteryOdds : 0,
+            position2: currentPosition <= 6 ? baseLotteryOdds * 0.6 : 0,
+            position3: currentPosition <= 6 ? baseLotteryOdds * 0.4 : 0,
+            top6: currentPosition <= 6 ? Math.min(100, baseLotteryOdds * 2) : 0
+          },
+          scenarios: {
+            bestCase: minPick,
+            worstCase: maxPick,
+            mostLikely: currentPosition
+          },
+          games_remaining: weeksRemaining,
+          elimination_scenario: currentPosition <= 6 
+            ? `Need ${Math.max(0, 3 - currentWins)} more losses to secure lottery position`
+            : 'Not in lottery contention'
+        };
+      } catch (teamError) {
+        console.error('Error processing team for tankathon data:', team, teamError);
+        // Return a safe fallback object
+        return {
+          team,
+          current_pick: index + 1,
+          projected_pick: index + 1,
+          min_pick: index + 1,
+          max_pick: index + 1,
+          currentRecord: { wins: 0, losses: 0 },
+          projectedRecord: { wins: 0, losses: weeksRemaining },
+          strengthOfSchedule: 0.5,
+          lottery_odds: 0,
+          lotteryOdds: { position1: 0, position2: 0, position3: 0, top6: 0 },
+          scenarios: { bestCase: index + 1, worstCase: index + 1, mostLikely: index + 1 },
+          games_remaining: weeksRemaining,
+          elimination_scenario: 'Data not available'
+        };
+      }
+    });
+
+    console.log('Generated tankathon data for', tankathonData.length, 'teams');
+    return tankathonData;
+  } catch (error) {
+    console.error('Error in generateTankathonData:', error);
+    return [];
+  }
 };
 
 /**
  * Simulate season outcomes for remaining games
  */
-export const simulateSeasonOutcomes = (teams: any[], iterations: number = 1000): any => {
-  const outcomes = {
-    draftPositions: teams.map(() => ({ min: 12, max: 1, avg: 6.5 })),
-    playoffOdds: teams.map(() => 0.5),
-    lotteryOdds: teams.map(() => 0)
-  };
-
-  // Simplified simulation - in reality this would be much more complex
-  for (let i = 0; i < iterations; i++) {
-    // Simulate remaining games for each team
-    const simulatedTeams = teams.map(team => {
-      const currentWins = team.record?.wins || 0;
-      const currentLosses = team.record?.losses || 0;
-      const gamesRemaining = 3; // Assume 3 games left
-      
-      // Random simulation of remaining games
-      let additionalWins = 0;
-      for (let game = 0; game < gamesRemaining; game++) {
-        if (Math.random() > 0.5) additionalWins++;
-      }
-      
-      return {
-        ...team,
-        finalWins: currentWins + additionalWins,
-        finalLosses: currentLosses + (gamesRemaining - additionalWins)
-      };
-    });
-    
-    // Sort by final record to determine draft positions
-    simulatedTeams.sort((a, b) => {
-      const aWinPct = a.finalWins / (a.finalWins + a.finalLosses);
-      const bWinPct = b.finalWins / (b.finalWins + b.finalLosses);
-      return aWinPct - bWinPct; // Worst record gets pick 1
-    });
-    
-    // Update outcome tracking
-    simulatedTeams.forEach((team, position) => {
-      const originalIndex = teams.findIndex(t => t.roster_id === team.roster_id);
-      if (originalIndex !== -1) {
-        const draftPosition = position + 1;
-        outcomes.draftPositions[originalIndex].min = Math.min(
-          outcomes.draftPositions[originalIndex].min, 
-          draftPosition
-        );
-        outcomes.draftPositions[originalIndex].max = Math.max(
-          outcomes.draftPositions[originalIndex].max, 
-          draftPosition
-        );
-      }
-    });
+export const simulateSeasonOutcomes = (teams: any[], iterations: number = 1000): Map<string, number[]> => {
+  console.log('simulateSeasonOutcomes called with teams:', teams.length, 'iterations:', iterations);
+  
+  if (!teams || teams.length === 0) {
+    console.warn('No teams provided to simulateSeasonOutcomes');
+    return new Map();
   }
 
-  return outcomes;
+  try {
+    const teamPositions = new Map<string, number[]>();
+    
+    // Initialize position tracking for each team
+    teams.forEach(team => {
+      teamPositions.set(team.user_id || team.roster_id?.toString() || 'unknown', []);
+    });
+
+    // Run simulations
+    for (let i = 0; i < iterations; i++) {
+      try {
+        // Simulate remaining games for each team
+        const simulatedTeams = teams.map(team => {
+          const currentWins = team.record?.wins || 0;
+          const currentLosses = team.record?.losses || 0;
+          const gamesRemaining = 3; // Assume 3 games left
+          
+          // Random simulation of remaining games
+          let additionalWins = 0;
+          for (let game = 0; game < gamesRemaining; game++) {
+            if (Math.random() > 0.5) additionalWins++;
+          }
+          
+          return {
+            ...team,
+            finalWins: currentWins + additionalWins,
+            finalLosses: currentLosses + (gamesRemaining - additionalWins)
+          };
+        });
+        
+        // Sort by final record to determine draft positions (worst record gets pick 1)
+        simulatedTeams.sort((a, b) => {
+          const aTotalGames = a.finalWins + a.finalLosses;
+          const bTotalGames = b.finalWins + b.finalLosses;
+          
+          if (aTotalGames === 0 && bTotalGames === 0) return 0;
+          if (aTotalGames === 0) return 1;
+          if (bTotalGames === 0) return -1;
+          
+          const aWinPct = a.finalWins / aTotalGames;
+          const bWinPct = b.finalWins / bTotalGames;
+          return aWinPct - bWinPct; // Ascending order (worst first)
+        });
+        
+        // Record positions
+        simulatedTeams.forEach((team, position) => {
+          const teamId = team.user_id || team.roster_id?.toString() || 'unknown';
+          const positions = teamPositions.get(teamId);
+          if (positions) {
+            positions.push(position + 1);
+          }
+        });
+      } catch (simulationError) {
+        console.error('Error in simulation iteration', i, ':', simulationError);
+        continue; // Skip this iteration
+      }
+    }
+
+    console.log('Completed', iterations, 'simulations for', teams.length, 'teams');
+    return teamPositions;
+  } catch (error) {
+    console.error('Error in simulateSeasonOutcomes:', error);
+    return new Map();
+  }
 };

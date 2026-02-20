@@ -13,12 +13,14 @@ export interface SleeperPlayer {
   first_name: string;
   last_name: string;
   position: string;
-  team: string;
+  team: string | null;
   age: number;
   height: string;
   weight: string;
   years_exp: number;
   active: boolean;
+  status: string;
+  fantasy_positions: string[];
 }
 
 class TradingValueService {
@@ -57,10 +59,17 @@ class TradingValueService {
 
       // Filter for active fantasy-relevant players
       Object.entries(allPlayers).forEach(([playerId, player]) => {
-        if (player.active && 
-            ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'].includes(player.position) &&
-            player.team && 
-            player.team !== null) {
+        // Check if player is active using both status and active fields for robustness
+        const isActive = player.status === 'Active' || player.active === true;
+        
+        // Check if player has fantasy-relevant position (use fantasy_positions if available, fallback to position)
+        const playerPositions = player.fantasy_positions || [player.position];
+        const isFantasyRelevant = playerPositions.some(pos => 
+          ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'].includes(pos)
+        );
+        
+        // Include both players on teams AND free agents (team can be null)
+        if (isActive && isFantasyRelevant && player.full_name) {
           
           // Generate a basic dynasty value based on position and age
           const baseValue = this.calculateBaseValue(player);
@@ -68,8 +77,8 @@ class TradingValueService {
           fantasyRelevantPlayers.push({
             player_id: playerId,
             name: player.full_name,
-            position: player.position,
-            team: player.team,
+            position: playerPositions[0] || player.position, // Use primary fantasy position
+            team: player.team || 'FA', // Show 'FA' for free agents instead of null
             value: baseValue,
             trend: this.determineTrend(player),
             dynasty_rank: 0, // Will be calculated after sorting
@@ -111,7 +120,7 @@ class TradingValueService {
     baseValue *= positionMultipliers[player.position as keyof typeof positionMultipliers] || 0.5;
 
     // Age factor (younger = more valuable in dynasty)
-    if (player.age) {
+    if (player.age && player.age > 0) {
       if (player.age <= 23) {
         baseValue *= 1.4; // Young, high upside
       } else if (player.age <= 26) {
@@ -123,6 +132,9 @@ class TradingValueService {
       } else {
         baseValue *= 0.4; // Veteran
       }
+    } else {
+      // Default multiplier for players with missing age data
+      baseValue *= 0.9;
     }
 
     // Experience factor
@@ -134,8 +146,16 @@ class TradingValueService {
       }
     }
 
-    // Add some randomization to create more realistic spread
-    baseValue *= (0.8 + Math.random() * 0.4);
+    // Use search_rank for more realistic values (lower rank = higher value)
+    if (player.search_rank && player.search_rank <= 300) {
+      if (player.search_rank <= 25) baseValue *= 1.8;        // Elite players
+      else if (player.search_rank <= 50) baseValue *= 1.5;   // High-end players  
+      else if (player.search_rank <= 100) baseValue *= 1.2;  // Good players
+      else if (player.search_rank <= 200) baseValue *= 1.1;  // Above average
+      else baseValue *= 0.9;                                 // Below average
+    } else {
+      baseValue *= 0.7; // Lower value for unranked/deep players
+    }
 
     return Math.round(baseValue);
   }
@@ -144,7 +164,14 @@ class TradingValueService {
    * Determine trend based on player characteristics
    */
   private determineTrend(player: SleeperPlayer): 'up' | 'down' | 'stable' {
-    if (!player.age) return 'stable';
+    // Handle missing age data
+    if (!player.age || player.age <= 0) {
+      // Use years_exp as backup for trend determination
+      if (player.years_exp <= 2) {
+        return 'up'; // Young/rookie players trending up
+      }
+      return 'stable';
+    }
     
     if (player.age <= 24 && player.years_exp <= 2) {
       return 'up'; // Young players trending up
