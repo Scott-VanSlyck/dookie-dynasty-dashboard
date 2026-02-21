@@ -35,32 +35,80 @@ class HistoricalTradeService {
       const allTrades: HistoricalTrade[] = [];
       const currentYear = new Date().getFullYear();
       
-      // Fetch trades from multiple historical seasons (2023-2025)
-      for (let year = 2023; year <= currentYear; year++) {
+      // Efficiently fetch trades from known previous leagues
+      const knownLeagues = [
+        { id: '1180090570030120960', season: '2025' }, // Previous season
+        { id: '1048300314966831104', season: '2024' }  // Earlier season (if it exists)
+      ];
+      
+      for (const league of knownLeagues) {
         try {
-          console.log(`📅 Fetching ${year} season trades...`);
+          console.log(`📅 Fetching ${league.season} season trades from league ${league.id}...`);
           
-          const leagueId = await this.findHistoricalLeagueId(year.toString());
-          if (!leagueId) {
-            console.log(`❌ No league found for ${year}`);
-            continue;
+          // Get all transactions across all weeks for this league
+          const weeklyTrades: any[] = [];
+          for (let week = 1; week <= 18; week++) {
+            try {
+              const response = await fetch(`https://api.sleeper.app/v1/league/${league.id}/transactions/${week}`);
+              const transactions = await response.json();
+              
+              if (Array.isArray(transactions)) {
+                const trades = transactions.filter(tx => tx.type === 'trade');
+                weeklyTrades.push(...trades);
+              }
+            } catch (weekError) {
+              // Skip weeks with no data
+              continue;
+            }
           }
           
-          const [transactions, teams] = await Promise.all([
-            this.getTransactionsByYear(leagueId, year.toString()),
-            this.getTeamsByYear(leagueId, year.toString())
-          ]);
+          // Convert Sleeper trades to our format
+          weeklyTrades.forEach(trade => {
+            const historicalTrade: HistoricalTrade = {
+              id: `${league.id}_${trade.transaction_id}`,
+              date: new Date(trade.created).toISOString().split('T')[0],
+              status: 'completed',
+              teams: [], // Will be populated later if needed
+              participants: {
+                team_a: {
+                  players_sent: Object.keys(trade.drops || {}),
+                  players_received: Object.keys(trade.adds || {}),
+                  draft_picks_sent: [],
+                  draft_picks_received: []
+                },
+                team_b: {
+                  players_sent: Object.keys(trade.adds || {}),
+                  players_received: Object.keys(trade.drops || {}),
+                  draft_picks_sent: [],
+                  draft_picks_received: []
+                }
+              },
+              analysis: {
+                evolution: [],
+                final_grade: {
+                  winner: 'TBD',
+                  grade: 'Fair',
+                  lessons_learned: []
+                }
+              },
+              consensus: {
+                community_vote: 50,
+                expert_grades: []
+              },
+              metadata: {
+                season: league.season,
+                league_id: league.id,
+                roster_ids: trade.roster_ids || []
+              }
+            };
+            
+            allTrades.push(historicalTrade);
+          });
           
-          // Filter for actual trades and convert to our format
-          const yearTrades = transactions
-            .filter(tx => tx.type === 'trade' && (tx.status === 'complete' || !tx.status))
-            .map(tx => this.convertSleeperTradeToHistoricalTrade(tx, teams, year.toString()));
-          
-          allTrades.push(...yearTrades);
-          console.log(`✅ Found ${yearTrades.length} trades in ${year}`);
+          console.log(`✅ Found ${weeklyTrades.length} trades in ${league.season}`);
           
         } catch (error) {
-          console.error(`Error fetching ${year} trades:`, error);
+          console.error(`Error fetching ${league.season} trades:`, error);
           continue;
         }
       }
