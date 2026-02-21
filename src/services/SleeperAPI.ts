@@ -147,21 +147,38 @@ class SleeperAPIService {
       }, {} as Record<string, SleeperUser>);
 
       console.log('🏈 Processing teams data...');
+      console.log(`📊 Users loaded: ${users.length}, Rosters loaded: ${rosters.length}`);
+      console.log('👥 User map created:', Object.keys(userMap).length, 'users');
+      
+      // Debug: Show a few users
+      users.slice(0, 3).forEach(user => {
+        console.log(`👤 User ${user.user_id}: ${user.display_name} - Team: "${user.metadata?.team_name || 'NO TEAM NAME'}"`);
+      });
 
       // Combine roster and user data
       const teams: DookieTeam[] = rosters.map(roster => {
         const user = userMap[roster.owner_id];
         
-        // Better team name fallback logic - use actual team name or create a readable fallback
+        // Debug logging to track down the team name issue
+        console.log(`🔍 Debug Roster ${roster.roster_id}:`, {
+          owner_id: roster.owner_id,
+          userFound: !!user,
+          display_name: user?.display_name,
+          metadata: user?.metadata,
+          team_name: user?.metadata?.team_name
+        });
+        
+        // Extract team name with priority: team_name > display_name + "'s Team" > fallback
         let teamName = 'Unknown Team';
-        if (user?.metadata?.team_name) {
-          teamName = user.metadata.team_name;
-        } else if (user?.display_name) {
-          // Create a readable fallback instead of generic "Team X"
-          teamName = `${user.display_name}'s Team`;
+        if (user?.metadata?.team_name && user.metadata.team_name.trim() !== '') {
+          teamName = user.metadata.team_name.trim();
+        } else if (user?.display_name && user.display_name.trim() !== '') {
+          teamName = `${user.display_name.trim()}'s Team`;
+        } else {
+          teamName = `Team ${roster.roster_id}`;
         }
 
-        console.log(`📋 Team ${roster.roster_id}: "${teamName}" (Owner: ${user?.display_name || 'Unknown'})`);
+        console.log(`✅ Final Team ${roster.roster_id}: "${teamName}" (Owner: ${user?.display_name || 'Unknown'})`);
         
         return {
           roster_id: roster.roster_id,
