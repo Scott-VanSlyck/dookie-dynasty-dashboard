@@ -109,7 +109,10 @@ class SleeperAPIService {
    */
   async getUsers(): Promise<SleeperUser[]> {
     try {
-      const response = await axios.get(`${this.baseURL}/league/${this.leagueId}/users`);
+      // Add cache-busting to ensure fresh team name data
+      const cacheBust = Date.now();
+      const response = await axios.get(`${this.baseURL}/league/${this.leagueId}/users?_=${cacheBust}`);
+      console.log('🎯 TEAM NAME DEBUG - Fresh user data fetched:', response.data?.length, 'users');
       return response.data;
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -159,31 +162,23 @@ class SleeperAPIService {
       const teams: DookieTeam[] = rosters.map(roster => {
         const user = userMap[roster.owner_id];
         
-        // Debug logging to track down the team name issue
-        console.log(`🔍 Debug Roster ${roster.roster_id}:`, {
-          owner_id: roster.owner_id,
-          userFound: !!user,
-          display_name: user?.display_name,
-          metadata: user?.metadata,
-          team_name: user?.metadata?.team_name
+        // DIRECT TEAM NAME EXTRACTION - No more fallbacks to generic names!
+        const directTeamName = user?.metadata?.team_name;
+        console.log(`🎯 TEAM NAME FIX - Roster ${roster.roster_id} (Owner: ${roster.owner_id}):`, {
+          user_found: !!user,
+          display_name: user?.display_name || 'NOT_FOUND',
+          metadata_exists: !!user?.metadata,
+          direct_team_name: directTeamName || 'NOT_FOUND',
+          will_use: directTeamName || `${user?.display_name || 'Unknown'}'s Team`
         });
-        
-        // Extract team name with priority: team_name > display_name + "'s Team" > fallback
-        let teamName = 'Unknown Team';
-        if (user?.metadata?.team_name && user.metadata.team_name.trim() !== '') {
-          teamName = user.metadata.team_name.trim();
-        } else if (user?.display_name && user.display_name.trim() !== '') {
-          teamName = `${user.display_name.trim()}'s Team`;
-        } else {
-          teamName = `Team ${roster.roster_id}`;
-        }
 
-        console.log(`✅ Final Team ${roster.roster_id}: "${teamName}" (Owner: ${user?.display_name || 'Unknown'})`);
+        // PRIORITY: Always use real team name if available, never generic "Team X"  
+        const finalTeamName = directTeamName || `${user?.display_name || 'Owner'}'s Team`;
         
         return {
           roster_id: roster.roster_id,
-          owner_name: user?.display_name || 'Unknown',
-          team_name: teamName,
+          owner_name: user?.display_name || 'Unknown Owner',
+          team_name: finalTeamName,
           user_id: roster.owner_id,
           avatar: user?.avatar || '',
           waiver_position: roster.settings.waiver_position,
