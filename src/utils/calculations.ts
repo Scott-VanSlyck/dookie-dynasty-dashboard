@@ -312,20 +312,30 @@ export const runEqualLottery = (teams: any[]): any[] => {
  * Generate Tankathon data for draft positioning analysis
  */
 export const generateTankathonData = (teams: any[], weeksRemaining: number = 3): any[] => {
-  console.log('generateTankathonData called with teams:', teams.length, 'weeksRemaining:', weeksRemaining);
+  console.log('generateTankathonData called with teams:', teams?.length || 0, 'weeksRemaining:', weeksRemaining);
   
-  if (!teams || teams.length === 0) {
-    console.warn('No teams provided to generateTankathonData');
+  // Robust input validation
+  if (!teams || !Array.isArray(teams) || teams.length === 0) {
+    console.warn('No valid teams array provided to generateTankathonData');
     return [];
   }
 
   try {
-    // Sort teams by record (worst first for draft positioning)
-    const sortedTeams = [...teams].sort((a, b) => {
-      const aWins = a.record?.wins || 0;
-      const aLosses = a.record?.losses || 0;
-      const bWins = b.record?.wins || 0;
-      const bLosses = b.record?.losses || 0;
+    // Filter out any invalid team objects and sort by record (worst first for draft positioning)
+    const validTeams = teams.filter(team => team && (team.roster_id || team.user_id));
+    
+    if (validTeams.length === 0) {
+      console.warn('No valid team objects found');
+      return [];
+    }
+    
+    console.log(`Processing ${validTeams.length} valid teams for Tankathon`);
+    
+    const sortedTeams = [...validTeams].sort((a, b) => {
+      const aWins = a.record?.wins || a.wins || 0;
+      const aLosses = a.record?.losses || a.losses || 0;
+      const bWins = b.record?.wins || b.wins || 0;
+      const bLosses = b.record?.losses || b.losses || 0;
       
       const aWinPct = calculateWinPercentage(aWins, aLosses);
       const bWinPct = calculateWinPercentage(bWins, bLosses);
@@ -334,28 +344,43 @@ export const generateTankathonData = (teams: any[], weeksRemaining: number = 3):
 
     const tankathonData = sortedTeams.map((team, index) => {
       try {
-        const currentWins = team.record?.wins || 0;
-        const currentLosses = team.record?.losses || 0;
+        // Robust data extraction with multiple fallbacks
+        const currentWins = team.record?.wins || team.wins || 0;
+        const currentLosses = team.record?.losses || team.losses || 0;
         const currentWinPct = calculateWinPercentage(currentWins, currentLosses);
         
         // Simulate potential draft positions
         const currentPosition = index + 1;
         
-        // Calculate potential range based on remaining games
-        const maxAdditionalWins = weeksRemaining;
-        const maxAdditionalLosses = weeksRemaining;
+        // Calculate potential range based on remaining games (safe math)
+        const safeWeeksRemaining = Math.max(0, Math.min(17, weeksRemaining)); // NFL season bounds
+        const maxAdditionalWins = safeWeeksRemaining;
+        const maxAdditionalLosses = safeWeeksRemaining;
         
         // Estimate position range (simplified calculation)
-        const positionVariance = Math.min(3, Math.ceil(weeksRemaining / 2));
+        const positionVariance = Math.min(3, Math.ceil(safeWeeksRemaining / 2));
         const minPick = Math.max(1, currentPosition - positionVariance);
-        const maxPick = Math.min(teams.length, currentPosition + positionVariance);
+        const maxPick = Math.min(sortedTeams.length, currentPosition + positionVariance);
         
         // Get lottery odds (safe array access)
-        const lotteryPosition = Math.max(0, currentPosition - 1);
-        const baseLotteryOdds = lotteryPosition < LOTTERY_ODDS.length ? LOTTERY_ODDS[lotteryPosition] : 0;
+        const lotteryPosition = Math.max(0, Math.min(LOTTERY_ODDS.length - 1, currentPosition - 1));
+        const baseLotteryOdds = LOTTERY_ODDS[lotteryPosition] || 0;
         
+        // Ensure team object is valid for the interface
+        const safeTeam = team || {
+          roster_id: index + 1,
+          owner_name: 'Unknown',
+          team_name: `Team ${index + 1}`,
+          user_id: `unknown_${index}`,
+          avatar: '',
+          waiver_position: 0,
+          record: { wins: currentWins, losses: currentLosses },
+          points_for: 0,
+          points_against: 0
+        };
+
         return {
-          team,
+          team: safeTeam,
           current_pick: currentPosition,
           projected_pick: currentPosition, // Simplified - would be more complex in reality
           min_pick: minPick,
@@ -365,43 +390,57 @@ export const generateTankathonData = (teams: any[], weeksRemaining: number = 3):
             losses: currentLosses
           },
           projectedRecord: {
-            wins: currentWins + Math.floor(weeksRemaining / 2), // Estimate 50% win rate
-            losses: currentLosses + Math.ceil(weeksRemaining / 2)
+            wins: currentWins + Math.floor(safeWeeksRemaining / 2), // Estimate 50% win rate
+            losses: currentLosses + Math.ceil(safeWeeksRemaining / 2)
           },
-          strengthOfSchedule: 0.5, // Placeholder
-          lottery_odds: baseLotteryOdds,
+          strengthOfSchedule: Math.max(0, Math.min(1, 0.5)), // Safe 0-1 range
+          lottery_odds: Math.max(0, Math.min(100, baseLotteryOdds)), // Safe percentage
           lotteryOdds: {
-            position1: currentPosition <= 6 ? baseLotteryOdds : 0,
-            position2: currentPosition <= 6 ? baseLotteryOdds * 0.6 : 0,
-            position3: currentPosition <= 6 ? baseLotteryOdds * 0.4 : 0,
-            top6: currentPosition <= 6 ? Math.min(100, baseLotteryOdds * 2) : 0
+            position1: currentPosition <= 6 ? Math.max(0, baseLotteryOdds) : 0,
+            position2: currentPosition <= 6 ? Math.max(0, baseLotteryOdds * 0.6) : 0,
+            position3: currentPosition <= 6 ? Math.max(0, baseLotteryOdds * 0.4) : 0,
+            top6: currentPosition <= 6 ? Math.min(100, Math.max(0, baseLotteryOdds * 2)) : 0
           },
           scenarios: {
             bestCase: minPick,
             worstCase: maxPick,
             mostLikely: currentPosition
           },
-          games_remaining: weeksRemaining,
+          games_remaining: safeWeeksRemaining,
           elimination_scenario: currentPosition <= 6 
             ? `Need ${Math.max(0, 3 - currentWins)} more losses to secure lottery position`
             : 'Not in lottery contention'
         };
       } catch (teamError) {
         console.error('Error processing team for tankathon data:', team, teamError);
-        // Return a safe fallback object
+        
+        // Create a completely safe fallback team object
+        const fallbackTeam = {
+          roster_id: index + 1,
+          owner_name: 'Unknown',
+          team_name: `Team ${index + 1}`,
+          user_id: `fallback_${index}`,
+          avatar: '',
+          waiver_position: 0,
+          record: { wins: 0, losses: 0 },
+          points_for: 0,
+          points_against: 0
+        };
+
+        // Return a safe fallback object that matches TankathonData interface
         return {
-          team,
+          team: fallbackTeam,
           current_pick: index + 1,
           projected_pick: index + 1,
           min_pick: index + 1,
           max_pick: index + 1,
           currentRecord: { wins: 0, losses: 0 },
-          projectedRecord: { wins: 0, losses: weeksRemaining },
+          projectedRecord: { wins: 0, losses: Math.max(0, weeksRemaining) },
           strengthOfSchedule: 0.5,
           lottery_odds: 0,
           lotteryOdds: { position1: 0, position2: 0, position3: 0, top6: 0 },
           scenarios: { bestCase: index + 1, worstCase: index + 1, mostLikely: index + 1 },
-          games_remaining: weeksRemaining,
+          games_remaining: Math.max(0, weeksRemaining),
           elimination_scenario: 'Data not available'
         };
       }
