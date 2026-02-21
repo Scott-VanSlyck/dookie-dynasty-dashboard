@@ -341,21 +341,19 @@ class TradingValueService {
           const dynastyValue = this.calculateDynastyValue(player);
           const trend = this.determineTrend(player);
           
-          // Only include players with meaningful dynasty value
-          if (dynastyValue > 50) {
-            fantasyRelevantPlayers.push({
-              player_id: playerId,
-              name: player.full_name,
-              position: playerPositions[0] || player.position,
-              team: player.team || 'FA',
-              value: dynastyValue,
-              trend: trend,
-              dynasty_rank: 0, // Will be calculated after sorting
-              redraft_rank: 0,
-              age: player.age,
-              years_exp: player.years_exp
-            });
-          }
+          // Include all fantasy relevant players (removed restrictive value filter)
+          fantasyRelevantPlayers.push({
+            player_id: playerId,
+            name: player.full_name,
+            position: playerPositions[0] || player.position,
+            team: player.team || 'FA',
+            value: dynastyValue,
+            trend: trend,
+            dynasty_rank: 0, // Will be calculated after sorting
+            redraft_rank: 0,
+            age: player.age,
+            years_exp: player.years_exp
+          });
         }
       });
 
@@ -872,6 +870,8 @@ class TradingValueService {
       return [];
     }
   }
+
+  // Removed duplicate calculateDynastyValue method
 
   /**
    * Enhanced trade analyzer with full roster context
